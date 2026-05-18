@@ -146,7 +146,7 @@ Make sure PostgreSQL is running. Then create the database and set up the table a
 
 ```bash
 psql -U postgres -c "CREATE DATABASE orders_db;"
-psql -U postgres -d orders_db -f db/setup.sql
+psql -U postgres -d orders_db -f database/setup.sql
 ```
 
 This will:
