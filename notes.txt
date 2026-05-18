@@ -1,0 +1,5 @@
+#Create the postgresql database using these commands :
+
+psql -U postgres -c "CREATE DATABASE orders_db;"
+psql -U postgres -d orders_db -f database/setup.sql
+
