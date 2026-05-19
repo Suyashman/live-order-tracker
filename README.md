@@ -32,7 +32,7 @@ WebSocket broadcasts to every connected browser tab
 Dashboard updates live — no refresh, no polling
 ```
 
-Zero polling. Zero extra infrastructure. The entire chain from a SQL command to a live browser update completes in **under 100 milliseconds**.
+Zero polling. Zero extra infrastructure.
 
 ---
 
@@ -251,7 +251,7 @@ Watch the dashboard update instantly after each command.
 
 This repository has two feature branches that extend the core system further, built to explore what a real-world application of this architecture looks like.
 
-### `feature/trading-simulation`
+### `feature-options-simulation`
 
 Extends the system into a multi-user trading platform with 5 client profiles and an admin. Clients can place orders, change status directly from a dashboard, and all tabs update live via the same WebSocket architecture.
 
@@ -260,7 +260,7 @@ Extends the system into a multi-user trading platform with 5 client profiles and
 - Admin can execute, settle, or reject any order from a live dashboard
 - Login page with profile picker — open multiple tabs, each with a different user
 
-### `feature/stock-exchange`
+### `feature-regular-trading`
 
 Takes the trading simulation further and builds a realistic stock exchange with a price-based order matching engine.
 
@@ -277,5 +277,5 @@ Both branches use the same core architecture — PostgreSQL `LISTEN`/`NOTIFY` + 
 
 ## Author
 
-**Suyashman**
-Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment — May 2026
+**Suyash Sunam**
+Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment — May-18th 2026
