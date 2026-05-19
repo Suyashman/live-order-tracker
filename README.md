@@ -32,7 +32,7 @@ WebSocket broadcasts to every connected browser tab
 Dashboard updates live — no refresh, no polling
 ```
 
-Zero polling. Zero extra infrastructure. The entire chain from a SQL command to a live browser update completes in **under 100 milliseconds**.
+Zero polling. Zero extra infrastructure.
 
 ---
 
@@ -56,6 +56,7 @@ The FastAPI server holds no order state of its own. It only listens to the datab
 FastAPI is built on Python's asyncio. The WebSocket broadcast and the database listener both run on the same async event loop without blocking each other. Hundreds of concurrent WebSocket connections can be served from a single process without spawning threads.
 
 ---
+![Main Dashboard](screenshots/Dashboard%201.png)
 
 ## Architecture
 
@@ -166,7 +167,7 @@ realtime-orders/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/realtime-orders.git
+git clone https://github.com/Suyashman/live-order-tracker.git
 cd realtime-orders
 ```
 
@@ -247,11 +248,12 @@ Watch the dashboard update instantly after each command.
 
 ---
 
+
 ## Additional Branches
 
 This repository has two feature branches that extend the core system further, built to explore what a real-world application of this architecture looks like.
 
-### `feature/trading-simulation`
+### `feature-options-simulation`
 
 Extends the system into a multi-user trading platform with 5 client profiles and an admin. Clients can place orders, change status directly from a dashboard, and all tabs update live via the same WebSocket architecture.
 
@@ -260,8 +262,11 @@ Extends the system into a multi-user trading platform with 5 client profiles and
 - Admin can execute, settle, or reject any order from a live dashboard
 - Login page with profile picker — open multiple tabs, each with a different user
 
-### `feature/stock-exchange`
-
+### `feature-regular-trading`
+![Regular Trading](screenshots/DASHBOARD%202%20REGULAR%20TRADING.png)
+![Order Book](screenshots/DASHBOARD%203%20REGULAR%20TRADING.png)
+![Multi Client](screenshots/DASHBOARD%204%20REGULAR%20TRADING.png)
+![Admin Panel](screenshots/DASHBOARD%205%20REGULAR%20TRADING.png)
 Takes the trading simulation further and builds a realistic stock exchange with a price-based order matching engine.
 
 - Three tables: `orders`, `stocks`, `trades` — all with triggers attached
@@ -277,5 +282,5 @@ Both branches use the same core architecture — PostgreSQL `LISTEN`/`NOTIFY` + 
 
 ## Author
 
-**Suyashman**
-Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment — May 2026
+**Suyash Sunam**
+Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment — May-18th 2026
