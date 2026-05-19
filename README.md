@@ -33,7 +33,6 @@ Dashboard updates live — no refresh, no polling
 ```
 
 Zero polling. Zero extra infrastructure.
-Zero polling. Zero extra infrastructure.
 
 ---
 
@@ -58,6 +57,8 @@ FastAPI is built on Python's asyncio. The WebSocket broadcast and the database l
 
 ---
 ![Main Dashboard](screenshots/Dashboard%201.png)
+Fig 1 Demonstration of client side browser updating when there is a change in the database.
+
 
 ## Architecture
 
@@ -169,8 +170,6 @@ realtime-orders/
 
 ```bash
 git clone https://github.com/Suyashman/live-order-tracker.git
-git clone https://github.com/Suyashman/live-order-tracker.git
-cd realtime-orders
 ```
 
 ### 2. Set up the database
@@ -266,10 +265,32 @@ Extends the system into a multi-user trading platform with 5 client profiles and
 - Login page with profile picker — open multiple tabs, each with a different user
 
 ### `feature-regular-trading`
+.
 ![Regular Trading](screenshots/DASHBOARD%202%20REGULAR%20TRADING.png)
+Fig 2 Admin portal and 2 client portals open.
+
+.
+
+.
+
 ![Order Book](screenshots/DASHBOARD%203%20REGULAR%20TRADING.png)
+Fig 3 Admin portal logs and client 1's buy trade.
+
+.
+
+.
 ![Multi Client](screenshots/DASHBOARD%204%20REGULAR%20TRADING.png)
+Fig 4 Two clients side by side with their respective buy sell orders.
+
+.
+
+.
+
 ![Admin Panel](screenshots/DASHBOARD%205%20REGULAR%20TRADING.png)
+Fig 5 Shows the trades that have been executed
+
+.
+
 Takes the trading simulation further and builds a realistic stock exchange with a price-based order matching engine.
 
 - Three tables: `orders`, `stocks`, `trades` — all with triggers attached
