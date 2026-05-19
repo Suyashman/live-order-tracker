@@ -166,7 +166,7 @@ realtime-orders/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/realtime-orders.git
+git clone https://github.com/Suyashman/live-order-tracker.git
 cd realtime-orders
 ```
 
