@@ -33,6 +33,7 @@ Dashboard updates live — no refresh, no polling
 ```
 
 Zero polling. Zero extra infrastructure.
+Zero polling. Zero extra infrastructure.
 
 ---
 
@@ -168,6 +169,7 @@ realtime-orders/
 
 ```bash
 git clone https://github.com/Suyashman/live-order-tracker.git
+git clone https://github.com/Suyashman/live-order-tracker.git
 cd realtime-orders
 ```
 
@@ -253,6 +255,7 @@ Watch the dashboard update instantly after each command.
 
 This repository has two feature branches that extend the core system further, built to explore what a real-world application of this architecture looks like.
 
+### `feature-options-simulation`
 ### `feature-options-simulation`
 
 Extends the system into a multi-user trading platform with 5 client profiles and an admin. Clients can place orders, change status directly from a dashboard, and all tabs update live via the same WebSocket architecture.
