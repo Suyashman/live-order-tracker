@@ -6,3 +6,275 @@ psql -U postgres -d orders_db -f database/setup.sql
 
 
 CREATED 2 BRANCHES ONE FOR OPTIONS , ONE FOR TRADING 
+
+
+# APT Stock Exchange — Real-Time Trading Simulation
+
+> A full-stack real-time order matching system built for the [Apt (Atypical Technologies)](https://apt.trading/) backend internship assignment. Simulates a live stock exchange where multiple clients can place BUY/SELL orders, watch them match in real-time, and receive instant notifications — all powered by PostgreSQL's native event system with zero polling.
+
+---
+
+## What It Does
+
+Open six browser tabs. Pick a different profile in each. Place orders. Watch every screen update in under 100ms — no refresh, no polling, no magic.
+
+```
+Client places BUY order
+        ↓
+PostgreSQL trigger fires → pg_notify()
+        ↓
+Python backend receives event (asyncpg LISTEN)
+        ↓
+Matching engine runs → finds compatible SELL order
+        ↓
+Trade executes → remainder stays pending (partial fills supported)
+        ↓
+WebSocket broadcasts to ALL connected clients instantly
+        ↓
+Every open tab updates live
+```
+
+---
+
+## Demo Walkthrough
+
+| Tab | Profile | Action |
+|-----|---------|--------|
+| 1 | Client 1 | Place BUY 5 × HDFC @ ₹1645 |
+| 2 | Client 2 | Place SELL 3 × HDFC @ ₹1645 |
+| 3 | Admin | Watch both arrive, trade executes, reject any pending order |
+
+**What happens:** Trade executes for qty 3. Client 1's remainder (BUY 2) stays pending and re-enters the order book automatically. Every tab sees all of this happen live.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         PostgreSQL                                  │
+│                                                                     │
+│  orders / stocks / trades tables                                    │
+│       │                                                             │
+│       └── Trigger on INSERT / UPDATE / DELETE                       │
+│                 └── pg_notify('exchange_channel', JSON payload)     │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │  LISTEN / NOTIFY  (no polling)
+┌─────────────────────────────▼───────────────────────────────────────┐
+│                    Python Backend  (FastAPI)                        │
+│                                                                     │
+│  asyncpg LISTEN → Order Matching Engine → WebSocket broadcast      │
+│                                                                     │
+│  REST: /orders  /stocks  /trades  /orderbook/{symbol}              │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │  WebSocket  ws://
+┌─────────────────────────────▼───────────────────────────────────────┐
+│                   Browser Clients  (HTML + JS)                      │
+│                                                                     │
+│  login.html → client.html  (trader dashboard)                      │
+│             → admin.html   (exchange control desk)                  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Why no polling?**
+PostgreSQL has a built-in pub/sub mechanism. A trigger fires on every table change and calls `pg_notify()`. The backend LISTENs on that channel via a persistent asyncpg connection — no repeated queries, no timers, purely event-driven. The moment a row changes, the backend is notified in the same database transaction.
+
+---
+
+## Features
+
+**Order Matching Engine**
+- Price-time priority — best price first, then oldest order
+- BUY matches cheapest available SELL at or below buy price
+- SELL matches highest available BUY at or above sell price
+- **Partial fills** — trade executes for `min(buy_qty, sell_qty)`, remainder automatically re-enters the order book as a new pending order
+
+**Real-Time Updates**
+- Every INSERT, UPDATE, DELETE on all three tables broadcast instantly to all tabs
+- Auto-reconnecting WebSocket with 3s retry
+
+**Client Dashboard**
+- Live stock list with last traded prices
+- BUY / SELL order form
+- Separate tables for Open Orders and Order History
+- Live order book — bids and asks aggregated by price level with spread
+- Recent trades per stock
+- Toast popup notifications on order placed, matched, rejected, or cancelled
+
+**Admin Dashboard**
+- All orders across all clients, filterable by status
+- Reject any pending order with one click
+- Live market prices, recent trades feed, real-time event log
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Reason |
+|---|---|---|
+| Database | PostgreSQL | Native `LISTEN`/`NOTIFY` — no extra infra needed |
+| DB → Backend | asyncpg | Async PostgreSQL driver with built-in listener support |
+| Backend | Python + FastAPI | Async-first, clean WebSocket support |
+| Backend → Client | WebSockets | Persistent connection, true server push |
+| Frontend | Vanilla HTML/JS | No build step, zero dependencies |
+
+---
+
+## Project Structure
+
+```
+realtime-orders/
+│
+├── backend/
+│   ├── main.py              # FastAPI app — WebSocket server, REST endpoints, matching engine
+│   ├── database.py          # PostgreSQL connection + LISTEN setup
+│   ├── requirements.txt     # Python dependencies
+│   └── .env                 # DB credentials (create manually, never committed)
+│
+├── client/
+│   ├── login.html           # Profile picker — Client 1–5 or Admin
+│   ├── client.html          # Trader dashboard
+│   └── admin.html           # Exchange control desk
+│
+├── database/
+│   └── setup.sql            # Creates tables, triggers, seeds 8 stocks
+│
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- PostgreSQL 13+
+
+### 1. Clone
+
+```bash
+git clone https://github.com/your-username/realtime-orders.git
+cd realtime-orders
+```
+
+### 2. Set up the database
+
+```bash
+psql -U postgres -c "CREATE DATABASE orders_db;"
+psql -U postgres -d orders_db -f database/setup.sql
+```
+
+Creates `orders`, `stocks`, `trades` tables, attaches triggers to all three, and seeds 8 stocks (HDFCBANK, RELIANCE, TCS, INFY, WIPRO, SBIN, ICICIBANK, BAJFINANCE).
+
+### 3. Configure environment
+
+Create `backend/.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/orders_db
+```
+
+### 4. Run
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+Server starts at `http://localhost:8000`.
+
+### 5. Open the client
+
+Open `client/login.html` in your browser. Open 3–4 tabs and pick different profiles in each to simulate multiple traders.
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/stocks` | All stocks with current price and available qty |
+| `GET` | `/orders` | All orders (admin view) |
+| `GET` | `/orders/{client_id}` | Orders for a specific client |
+| `POST` | `/orders` | Place a new BUY or SELL order |
+| `PATCH` | `/orders/{id}/status` | Update order status (reject / cancel) |
+| `GET` | `/trades` | Recent trade history |
+| `GET` | `/orderbook/{symbol}` | Aggregated bids and asks for a stock |
+| `WS` | `/ws` | WebSocket — receive all DB change events in real-time |
+
+**Place order payload:**
+```json
+{
+  "placed_by": "client_1",
+  "stock_symbol": "HDFCBANK",
+  "order_type": "BUY",
+  "quantity": 10,
+  "price": 1645.50
+}
+```
+
+**WebSocket event format (every DB change):**
+```json
+{
+  "table": "orders",
+  "operation": "UPDATE",
+  "data": {
+    "id": 42,
+    "placed_by": "client_1",
+    "stock_symbol": "HDFCBANK",
+    "order_type": "BUY",
+    "quantity": 10,
+    "price": 1645.50,
+    "status": "matched",
+    "updated_at": "2026-05-20T15:47:22Z"
+  }
+}
+```
+
+---
+
+## Order Lifecycle
+
+```
+Client places order
+        │
+        ▼
+    PENDING ◄──── Client can CANCEL here
+        │         Admin can REJECT here
+        ▼
+    MATCHED ◄──── Matching engine found a compatible opposite order
+                  Partial fill? → remainder becomes new PENDING order
+```
+
+---
+
+## Scalability Notes
+
+- **Event-driven, not poll-driven** — CPU and DB load stays flat regardless of client count
+- **Stateless backend** — FastAPI holds no order state; it only forwards DB events
+- **Concurrent-safe matching** — uses `FOR UPDATE SKIP LOCKED` in PostgreSQL to prevent race conditions
+- **Horizontal scaling path** — swap `pg_notify` for Redis Pub/Sub or Kafka to fan out across multiple backend instances; the WebSocket interface stays the same
+- **Dead connection handling** — `ConnectionManager` silently cleans up broken WebSocket connections on every broadcast
+
+---
+
+## Why PostgreSQL LISTEN/NOTIFY Over Other Approaches
+
+| Approach | Latency | DB Load | Extra Infra |
+|---|---|---|---|
+| Client polling every 1s | Up to 1000ms | High — N clients × 1 req/s | None |
+| App-level events on write | ~10ms | Low | None — but breaks if DB is written to directly |
+| WAL-based CDC (Debezium + Kafka) | ~5ms | Very low | Kafka cluster + Debezium |
+| **PostgreSQL LISTEN/NOTIFY + WebSocket** ✅ | ~10–50ms | Very low | **None — built into Postgres** |
+
+LISTEN/NOTIFY fires inside the same transaction as the data change, requires zero extra infrastructure, and scales to thousands of concurrent listeners. It is the right tool for this problem.
+
+---
+
+## Author
+
+**Suyashman**
+Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment — May 2026

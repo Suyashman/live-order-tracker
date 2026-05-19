@@ -1,210 +1,100 @@
-# Real-Time Order Update System
+# Real-Time Order Notification System
 
-A backend service that pushes live database changes to connected clients — no polling, no page refreshes.
-
-Built for the **Apt (Atypical Technologies Pvt. Ltd.)** internship assignment.
-
----
-
-## What This Project Does
-
-Whenever a row in the `orders` table is inserted, updated, or deleted in the database, every connected client receives the update **instantly** and **automatically**.
-
-This is the same pattern used in real-world trading platforms, where order status must be reflected in real-time across dashboards without any manual refresh.
+> Backend assignment submission for **Apt (Atypical Technologies Pvt. Ltd.)** — a technology company building algo trading products for the Indian stock market.
+>
+> The assignment asked: *"Design and implement a system where clients automatically receive updates whenever data in the database changes — without polling."*
 
 ---
 
-## Architecture Overview
+## The Problem
+
+Most naive solutions to this problem use **polling** — the client repeatedly asks the server "anything new?" every few seconds. This is wasteful, introduces latency, and completely falls apart at scale. In a trading system where order status changes in milliseconds, polling is unacceptable.
+
+The challenge is to build a system where the **database itself notifies the backend** when something changes, and the backend **immediately pushes** that change to every connected client.
+
+---
+
+## The Solution
+
+PostgreSQL has a built-in pub/sub mechanism called `LISTEN`/`NOTIFY`. A trigger fires on every `INSERT`, `UPDATE`, or `DELETE` on the `orders` table and calls `pg_notify()` with the changed row as a JSON payload. The Python backend holds a single persistent connection that LISTENs on that channel — the moment any row changes, the backend is notified in the **same database transaction** and immediately broadcasts it over WebSocket to all connected clients.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        PostgreSQL                               │
-│                                                                 │
-│   orders table  ──►  Trigger Function  ──►  pg_notify()        │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │  LISTEN / NOTIFY (event channel)
-┌──────────────────────────────▼──────────────────────────────────┐
-│                     Python Backend (FastAPI)                    │
-│                                                                 │
-│   asyncpg LISTEN  ──►  Parse Payload  ──►  WebSocket Broadcast │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │  WebSocket (ws://)
-┌──────────────────────────────▼──────────────────────────────────┐
-│                    Browser Client (HTML/JS)                     │
-│                                                                 │
-│   WebSocket.onmessage  ──►  Update Live Orders Table           │
-└─────────────────────────────────────────────────────────────────┘
+Someone changes a row in the orders table
+              ↓
+PostgreSQL trigger fires automatically
+              ↓
+pg_notify() publishes JSON payload to 'orders_channel'
+              ↓
+Python backend receives it instantly (asyncpg LISTEN)
+              ↓
+WebSocket broadcasts to every connected browser tab
+              ↓
+Dashboard updates live — no refresh, no polling
 ```
 
-**Flow in plain English:**
-
-1. Someone inserts or updates a row in the `orders` table
-2. A PostgreSQL trigger fires automatically and calls `pg_notify()` with the changed row as JSON
-3. The Python backend (which is LISTENing on that channel) receives the notification instantly
-4. The backend broadcasts the update over WebSocket to all connected browser clients
-5. The browser updates the live orders table — no refresh needed
+Zero polling. Zero extra infrastructure. The entire chain from a SQL command to a live browser update completes in **under 100 milliseconds**.
 
 ---
 
-## Why This Approach?
+## Why This Is Scalable
 
-### The Problem with Polling
+The assignment evaluation criteria specifically asked about scalability and design thinking. Here is how this system addresses that:
 
-The naive solution is to have the client ask the server every few seconds: *"anything new?"*. This is called **polling**, and it has serious problems:
+**No polling overhead**
+Every polling-based system has a fundamental problem: resource usage scales with the number of clients, even when nothing is happening. With 1000 clients polling every second, that is 1000 requests per second returning empty responses. This system is purely event-driven — the backend only does work when something actually changes. Resource usage stays flat at idle regardless of how many clients are connected.
 
-- **Wasteful** — 99% of requests return nothing new
-- **Delayed** — updates only arrive at the next poll interval
-- **Doesn't scale** — 1000 clients × polling every second = 1000 requests/second for no reason
+**Persistent WebSocket connections**
+HTTP is request-response — the client always has to initiate. WebSockets maintain a persistent connection, so the server can push data to the client at any time with virtually no overhead. Once connected, there is no repeated handshake, no repeated headers, no repeated parsing. This is the same model used in real trading terminals.
 
-In algo trading, where order status can change in milliseconds, polling is completely unacceptable.
+**Database-level triggers instead of application-level events**
+The trigger lives inside PostgreSQL itself, not in the application code. This means any change to the `orders` table — regardless of which service or tool caused it — will fire a notification. If a database admin runs a direct SQL update, clients still get notified. The system is not fragile to writes happening outside the application.
 
-### Why PostgreSQL LISTEN/NOTIFY?
+**Stateless backend**
+The FastAPI server holds no order state of its own. It only listens to the database and forwards events. This means you can run multiple instances of the backend behind a load balancer. The only change needed to support this at scale is replacing `pg_notify` with Redis Pub/Sub or Kafka as the message bus — the WebSocket interface and the client code stay exactly the same.
 
-PostgreSQL has a built-in pub/sub mechanism:
+**Concurrent connection handling**
+FastAPI is built on Python's asyncio. The WebSocket broadcast and the database listener both run on the same async event loop without blocking each other. Hundreds of concurrent WebSocket connections can be served from a single process without spawning threads.
 
-- A **trigger** on the `orders` table fires on every INSERT, UPDATE, or DELETE
-- The trigger calls `pg_notify('orders_channel', payload)` — publishing an event with the changed row as JSON
-- The backend **LISTENs** on `orders_channel` and receives the event the moment it fires
+---
 
-This means:
-- **Zero polling** — the DB itself pushes the event
-- **No extra infrastructure** — no Kafka, no Redis, no message broker needed
-- **Instant** — the backend is notified in the same transaction that changed the data
-- **Reliable** — if the backend is connected, it will not miss a single event
+## Architecture
 
-### Why WebSockets?
-
-WebSockets maintain a persistent, two-way connection between the server and the browser:
-
-- Once connected, the server can **push** data to the client at any time
-- No repeated HTTP requests from the client
-- Low overhead — ideal for high-frequency updates like order status in a trading system
-
-Compare this to HTTP long-polling or Server-Sent Events — WebSockets are the most efficient choice when bidirectional, low-latency communication is needed.
-
-### Why FastAPI?
-
-- Native support for `async/await` — critical for handling concurrent WebSocket connections efficiently
-- Clean and minimal — easy to read and extend
-- `asyncpg` integrates seamlessly for async PostgreSQL connections
+```
+┌──────────────────────────────────────────────────────────────┐
+│                       PostgreSQL                             │
+│                                                              │
+│   orders table                                               │
+│       └── Trigger: notify_order_change()                     │
+│                 └── pg_notify('orders_channel', JSON)        │
+└──────────────────────────┬───────────────────────────────────┘
+                           │  LISTEN / NOTIFY
+                           │  (single persistent connection, no polling)
+┌──────────────────────────▼───────────────────────────────────┐
+│                  Python Backend  (FastAPI)                   │
+│                                                              │
+│  asyncpg LISTEN  ──►  on_db_change()  ──►  WS broadcast     │
+│                                                              │
+│  REST endpoints: GET /orders  POST /orders  PATCH /orders    │
+└──────────────────────────┬───────────────────────────────────┘
+                           │  WebSocket  ws://localhost:8000/ws
+┌──────────────────────────▼───────────────────────────────────┐
+│               Browser Client  (index.html)                   │
+│                                                              │
+│  WebSocket.onmessage  ──►  Live orders dashboard             │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Tech Stack
 
-| Component | Technology | Reason |
-|-----------|------------|--------|
-| Database | PostgreSQL | Native LISTEN/NOTIFY support |
-| Backend | Python + FastAPI | Async-first, WebSocket support |
-| DB Connection | asyncpg | Async PostgreSQL driver |
-| Client Push | WebSockets | Low-latency, persistent connection |
-| Frontend | HTML + Vanilla JS | Simple, no build step needed |
-
----
-
-## Project Structure
-
-```
-realtime-orders/
-│
-├── backend/
-│   ├── main.py              # FastAPI app — WebSocket server + DB listener
-│   ├── database.py          # PostgreSQL connection and LISTEN setup
-│   └── requirements.txt     # Python dependencies
-│
-├── database/
-│   └── setup.sql            # Creates orders table, trigger function, and trigger
-│
-├── client/
-│   └── index.html           # Browser client — live orders dashboard
-│
-└── README.md
-```
-
----
-
-## Prerequisites
-
-- Python 3.10+
-- PostgreSQL 13+
-- pip
-
----
-
-## Setup & Running
-
-### Step 1 — Clone the Repository
-
-```bash
-git clone https://github.com/your-username/realtime-orders.git
-cd realtime-orders
-```
-
-### Step 2 — Set Up PostgreSQL
-
-Make sure PostgreSQL is running. Then create the database and set up the table and trigger:
-
-```bash
-psql -U postgres -c "CREATE DATABASE orders_db;"
-psql -U postgres -d orders_db -f database/setup.sql
-```
-
-This will:
-- Create the `orders` table
-- Create a trigger function that calls `pg_notify()` on any change
-- Attach the trigger to the table
-
-### Step 3 — Install Python Dependencies
-
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-### Step 4 — Configure Environment
-
-Create a `.env` file in the `backend/` folder:
-
-```env
-DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/orders_db
-```
-
-Replace `yourpassword` with your actual PostgreSQL password.
-
-### Step 5 — Start the Backend
-
-```bash
-cd backend
-uvicorn main:app --reload
-```
-
-The server will start at `http://localhost:8000`.
-
-### Step 6 — Open the Client
-
-Open `client/index.html` directly in your browser. You will see a live orders dashboard.
-
-### Step 7 — Test It
-
-In a new terminal, connect to the database and insert or update a row:
-
-```bash
-psql -U postgres -d orders_db
-```
-
-```sql
--- Insert a new order
-INSERT INTO orders (customer_name, product_name, status)
-VALUES ('Rahul Sharma', 'NIFTY Call Option', 'pending');
-
--- Update status
-UPDATE orders SET status = 'shipped' WHERE customer_name = 'Rahul Sharma';
-
--- Delete an order
-DELETE FROM orders WHERE customer_name = 'Rahul Sharma';
-```
-
-Watch the browser dashboard update **instantly** after each command — no refresh needed.
+| Component | Technology | Why |
+|---|---|---|
+| Database | PostgreSQL | Native `LISTEN`/`NOTIFY` — no extra message broker needed |
+| DB → Backend | asyncpg | Async PostgreSQL driver with first-class listener support |
+| Backend | Python + FastAPI | Async-first framework, built-in WebSocket support |
+| Backend → Client | WebSockets | Persistent connection, true server push, no polling |
+| Frontend | HTML + Vanilla JS | No build step — easy to run and demonstrate |
 
 ---
 
@@ -220,77 +110,172 @@ CREATE TABLE orders (
 );
 ```
 
----
-
-## How the Trigger Works
+The trigger fires on every `INSERT`, `UPDATE`, and `DELETE`:
 
 ```sql
--- Trigger function: fires on INSERT, UPDATE, DELETE
 CREATE OR REPLACE FUNCTION notify_order_change()
 RETURNS trigger AS $$
-DECLARE
-    payload JSON;
+DECLARE payload JSON;
 BEGIN
-    -- Build JSON payload with event type and row data
     IF TG_OP = 'DELETE' THEN
-        payload = json_build_object(
-            'operation', TG_OP,
-            'data', row_to_json(OLD)
-        );
+        payload = json_build_object('operation', TG_OP, 'data', row_to_json(OLD));
     ELSE
-        payload = json_build_object(
-            'operation', TG_OP,
-            'data', row_to_json(NEW)
-        );
+        payload = json_build_object('operation', TG_OP, 'data', row_to_json(NEW));
     END IF;
-
-    -- Publish to the 'orders_channel'
     PERFORM pg_notify('orders_channel', payload::text);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Attach trigger to orders table
 CREATE TRIGGER orders_change_trigger
 AFTER INSERT OR UPDATE OR DELETE ON orders
 FOR EACH ROW EXECUTE FUNCTION notify_order_change();
 ```
 
-Every time a row changes, PostgreSQL automatically calls this function, which publishes a JSON event to `orders_channel`. The Python backend receives it immediately.
+---
+
+## Project Structure
+
+```
+realtime-orders/
+│
+├── backend/
+│   ├── main.py              # FastAPI server — WebSocket endpoint + REST API
+│   ├── database.py          # PostgreSQL connection and LISTEN setup
+│   └── requirements.txt
+│
+├── client/
+│   └── index.html           # Live orders dashboard
+│
+├── database/
+│   └── setup.sql            # Table + trigger definition
+│
+├── .gitignore
+└── README.md
+```
 
 ---
 
-## Scalability Considerations
+## Getting Started
 
-This architecture is designed with growth in mind:
+### Prerequisites
 
-- **Multiple clients** — the WebSocket server can handle many concurrent connections; every connected client receives every update
-- **No polling overhead** — the system is event-driven; resource usage stays flat regardless of how often clients check in
-- **Stateless backend** — the FastAPI server does not store any order state itself; it purely forwards events from the DB to clients
-- **Horizontal scaling** — for higher loads, the LISTEN/NOTIFY pattern can be replaced with a message broker like Redis Pub/Sub or Kafka, with minimal changes to the backend interface
+- Python 3.10+
+- PostgreSQL 13+
 
-For a production trading system, the next steps would be:
+### 1. Clone the repository
 
-1. Add authentication to the WebSocket endpoint so only authorized clients connect
-2. Filter events per client — traders should only see their own orders
-3. Add a Redis layer between the DB and the backend for fan-out to multiple backend instances
-4. Persist missed events so clients that reconnect can catch up
+```bash
+git clone https://github.com/your-username/realtime-orders.git
+cd realtime-orders
+```
+
+### 2. Set up the database
+
+```bash
+psql -U postgres -c "CREATE DATABASE orders_db;"
+psql -U postgres -d orders_db -f database/setup.sql
+```
+
+### 3. Configure environment
+
+Create `backend/.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/orders_db
+```
+
+### 4. Install dependencies and run
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+### 5. Open the client
+
+Open `client/index.html` in your browser.
+
+### 6. Test it
+
+In a new terminal:
+
+```bash
+psql -U postgres -d orders_db
+```
+
+```sql
+-- Insert a new order
+INSERT INTO orders (customer_name, product_name, status)
+VALUES ('Rahul Sharma', 'Laptop', 'pending');
+
+-- Update status
+UPDATE orders SET status = 'shipped' WHERE id = 1;
+
+-- Delete
+DELETE FROM orders WHERE id = 1;
+```
+
+Watch the dashboard update instantly after each command.
 
 ---
 
-## Key Design Decisions Summary
+## API Reference
 
-| Decision | Alternative Considered | Why This Was Better |
-|----------|----------------------|---------------------|
-| PostgreSQL LISTEN/NOTIFY | Polling the DB every second | Event-driven, zero latency, no wasted queries |
-| WebSockets | HTTP long-polling | Persistent connection, true server push |
-| asyncpg | psycopg2 | Native async support, no blocking |
-| FastAPI | Flask | Async-first, built-in WebSocket support |
-| Trigger in DB | App-level event on write | Works for any DB client, not just this app |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/orders` | Fetch all current orders |
+| `POST` | `/orders` | Create a new order |
+| `PATCH` | `/orders/{id}` | Update order status |
+| `DELETE` | `/orders/{id}` | Delete an order |
+| `WS` | `/ws` | WebSocket — receive all DB change events |
+
+**WebSocket event format:**
+```json
+{
+  "operation": "UPDATE",
+  "data": {
+    "id": 1,
+    "customer_name": "Rahul Sharma",
+    "product_name": "Laptop",
+    "status": "shipped",
+    "updated_at": "2026-05-20T15:47:22Z"
+  }
+}
+```
+
+---
+
+## Additional Branches
+
+This repository has two feature branches that extend the core system further, built to explore what a real-world application of this architecture looks like.
+
+### `feature/trading-simulation`
+
+Extends the system into a multi-user trading platform with 5 client profiles and an admin. Clients can place orders, change status directly from a dashboard, and all tabs update live via the same WebSocket architecture.
+
+- Replaces the simple `orders` table with trading-specific fields (`placed_by`, `option_type`, `stock`, `quantity`, `price`)
+- Order lifecycle: `pending → executed → settled` (or `rejected` / `cancelled`)
+- Admin can execute, settle, or reject any order from a live dashboard
+- Login page with profile picker — open multiple tabs, each with a different user
+
+### `feature/stock-exchange`
+
+Takes the trading simulation further and builds a realistic stock exchange with a price-based order matching engine.
+
+- Three tables: `orders`, `stocks`, `trades` — all with triggers attached
+- **Partial fill support** — if a BUY of 5 matches a SELL of 3, the trade executes for 3 and a new pending order of 2 is automatically created for the remainder
+- Live order book showing aggregated bids and asks per price level with spread
+- 8 seeded stocks (HDFCBANK, RELIANCE, TCS, INFY, WIPRO, SBIN, ICICIBANK, BAJFINANCE)
+- Toast popup notifications when orders are placed, matched, rejected, or cancelled
+- Concurrent-safe matching using `FOR UPDATE SKIP LOCKED` in PostgreSQL
+
+Both branches use the same core architecture — PostgreSQL `LISTEN`/`NOTIFY` + WebSocket — demonstrating that the pattern scales from a simple notification system to a full order matching engine without changing the fundamental design.
 
 ---
 
 ## Author
 
-Suyash Sunam 
-Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment
+**Suyashman**
+Submitted for Apt (Atypical Technologies Pvt. Ltd.) Backend Internship Assignment — May 2026
