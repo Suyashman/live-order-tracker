@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>APT — Trader Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #050608;
+      --surface:   #0d0f12;
+      --surface2:  #111418;
+      --border:    #181c22;
+      --muted:     #2a3040;
+      --text:      #e2eaf5;
+      --dim:       #4a5568;
+      --accent:    #3dffa0;
+      --call:      #3dffa0;
+      --put:       #ff6b8a;
+      --pending:   #f5c842;
+      --executed:  #4a9eff;
+      --settled:   #3dffa0;
+      --cancelled: #6b7280;
+      --rejected:  #ff4d6a;
+      --mono:      'JetBrains Mono', monospace;
+      --display:   'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── Topbar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+
+    .back-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 10px;
+      transition: all 0.2s;
+    }
+    .back-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    .profile-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+    }
+
+    .profile-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .profile-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0.05em;
+    }
+
+    .ws-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Layout: two column ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ── Order Form ── */
+    .form-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      position: sticky;
+      top: 24px;
+    }
+
+    .panel-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .panel-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .form-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* Toggle: CALL / PUT */
+    .toggle-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .toggle-btn {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--dim);
+    }
+
+    .toggle-btn.call.active {
+      background: rgba(61,255,160,0.1);
+      border-color: var(--call);
+      color: var(--call);
+    }
+
+    .toggle-btn.put.active {
+      background: rgba(255,107,138,0.1);
+      border-color: var(--put);
+      color: var(--put);
+    }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    .field label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .field select,
+    .field input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 10px 12px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+      appearance: none;
+    }
+
+    .field select:focus,
+    .field input:focus { border-color: var(--muted); }
+
+    .field select option { background: #0d0f12; }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px;
+      border-radius: 7px;
+      border: none;
+      background: var(--accent);
+      color: #050608;
+      font-family: var(--display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 4px;
+    }
+
+    .submit-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .form-msg {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-align: center;
+      padding: 8px;
+      border-radius: 5px;
+      display: none;
+    }
+
+    .form-msg.success { background: rgba(61,255,160,0.08); color: var(--accent); display: block; }
+    .form-msg.error   { background: rgba(255,77,106,0.08);  color: var(--rejected); display: block; }
+
+    /* ── Right panel ── */
+    .right-panel { display: flex; flex-direction: column; gap: 20px; }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .stat-val {
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .stat-val.c-pending   { color: var(--pending); }
+    .stat-val.c-executed  { color: var(--executed); }
+    .stat-val.c-settled   { color: var(--settled); }
+
+    /* ── Orders table ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--dim);
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    tbody td {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 12px 16px;
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    td.dim-col { color: var(--dim); }
+
+    .type-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      padding: 3px 8px;
+      border-radius: 3px;
+    }
+
+    .type-badge.CALL { background: rgba(61,255,160,0.1); color: var(--call); }
+    .type-badge.PUT  { background: rgba(255,107,138,0.1); color: var(--put); }
+
+    .status-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+    }
+
+    .status-badge.pending   { background: rgba(245,200,66,0.1);  color: var(--pending);   }
+    .status-badge.pending::before   { background: var(--pending); }
+    .status-badge.executed  { background: rgba(74,158,255,0.1);  color: var(--executed);  }
+    .status-badge.executed::before  { background: var(--executed); }
+    .status-badge.settled   { background: rgba(61,255,160,0.1);  color: var(--settled);   }
+    .status-badge.settled::before   { background: var(--settled); }
+    .status-badge.cancelled { background: rgba(107,114,128,0.1); color: var(--cancelled); }
+    .status-badge.cancelled::before { background: var(--cancelled); }
+    .status-badge.rejected  { background: rgba(255,77,106,0.1);  color: var(--rejected);  }
+    .status-badge.rejected::before  { background: var(--rejected); }
+
+    .cancel-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,77,106,0.3);
+      background: transparent;
+      color: var(--rejected);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .cancel-btn:hover { background: rgba(255,77,106,0.1); }
+
+    .empty-row td {
+      text-align: center;
+      padding: 40px;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    /* Flash animations */
+    @keyframes flash-green {
+      0%   { background: rgba(61,255,160,0.12); }
+      100% { background: transparent; }
+    }
+    @keyframes flash-red {
+      0%   { background: rgba(255,77,106,0.12); }
+      100% { background: transparent; }
+    }
+
+    tr.flash-new    { animation: flash-green 1s ease-out; }
+    tr.flash-update { animation: flash-green 1s ease-out; }
+    tr.flash-cancel { animation: flash-red   1s ease-out; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a class="back-btn" href="login.html">← Profiles</a>
+      <div class="profile-pill">
+        <div class="profile-dot"></div>
+        <span class="profile-name" id="profile-label">—</span>
+      </div>
+    </div>
+    <span class="ws-badge" id="ws-label">CONNECTING...</span>
+  </div>
+
+  <div class="layout">
+
+    <!-- Left: order form -->
+    <div class="form-panel">
+      <div class="panel-head">
+        <span class="panel-title">Place New Order</span>
+      </div>
+      <div class="form-body">
+
+        <!-- CALL / PUT toggle -->
+        <div class="toggle-row">
+          <button class="toggle-btn call active" id="btn-call" onclick="setType('CALL')">▲ CALL</button>
+          <button class="toggle-btn put"          id="btn-put"  onclick="setType('PUT')">▼ PUT</button>
+        </div>
+
+        <!-- Stock -->
+        <div class="field">
+          <label>Stock / Index</label>
+          <select id="f-stock">
+            <option>NIFTY 50</option>
+            <option>BANKNIFTY</option>
+            <option>RELIANCE</option>
+            <option>TCS</option>
+            <option>HDFC BANK</option>
+            <option>INFOSYS</option>
+            <option>SENSEX</option>
+          </select>
+        </div>
+
+        <!-- Quantity + Price -->
+        <div class="row-2">
+          <div class="field">
+            <label>Quantity (lots)</label>
+            <input type="number" id="f-qty" min="1" value="1" placeholder="1"/>
+          </div>
+          <div class="field">
+            <label>Price (₹)</label>
+            <input type="number" id="f-price" min="0.01" step="0.01" value="" placeholder="0.00"/>
+          </div>
+        </div>
+
+        <button class="submit-btn" id="submit-btn" onclick="placeOrder()">Place Order</button>
+        <div class="form-msg" id="form-msg"></div>
+      </div>
+    </div>
+
+    <!-- Right: stats + table -->
+    <div class="right-panel">
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">My Orders</div>
+          <div class="stat-val" id="s-total">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Pending</div>
+          <div class="stat-val c-pending" id="s-pending">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Executed</div>
+          <div class="stat-val c-executed" id="s-executed">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Settled</div>
+          <div class="stat-val c-settled" id="s-settled">0</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Stock</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="orders-body">
+            <tr class="empty-row"><td colspan="7">Loading your orders...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Profile ──────────────────────────────────────────────────────────────
+  const profile = sessionStorage.getItem('apt_profile') || 'client_1';
+  document.getElementById('profile-label').textContent = profile.replace('_', ' ').toUpperCase();
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let orders = {};
+  let selectedType = 'CALL';
+
+  function setType(t) {
+    selectedType = t;
+    document.getElementById('btn-call').classList.toggle('active', t === 'CALL');
+    document.getElementById('btn-put').classList.toggle('active',  t === 'PUT');
+  }
+
+  // ── Load initial orders ───────────────────────────────────────────────────
+  async function loadOrders() {
+    try {
+      const res = await fetch(`http://localhost:8000/orders/${profile}`);
+      const data = await res.json();
+      data.forEach(o => { orders[o.id] = o; });
+      renderTable();
+      updateStats();
+    } catch (e) {
+      console.error('Load failed:', e);
+    }
+  }
+
+  // ── Render table ──────────────────────────────────────────────────────────
+  function renderTable(flashId = null, flashClass = '') {
+    const tbody = document.getElementById('orders-body');
+    const myOrders = Object.values(orders)
+      .filter(o => o.placed_by === profile)
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+    if (!myOrders.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No orders yet. Place one using the form.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = myOrders.map(o => `
+      <tr id="row-${o.id}" class="${flashId == o.id ? flashClass : ''}">
+        <td class="dim-col">#${o.id}</td>
+        <td><span class="type-badge ${o.option_type}">${o.option_type}</span></td>
+        <td>${esc(o.stock)}</td>
+        <td>${o.quantity}</td>
+        <td>₹${parseFloat(o.price).toFixed(2)}</td>
+        <td><span class="status-badge ${o.status}">${o.status}</span></td>
+        <td>
+          ${o.status === 'pending'
+            ? `<button class="cancel-btn" onclick="cancelOrder(${o.id})">Cancel</button>`
+            : '<span style="color:var(--dim);font-size:11px;font-family:var(--mono)">—</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  function updateStats() {
+    const mine = Object.values(orders).filter(o => o.placed_by === profile);
+    document.getElementById('s-total').textContent    = mine.length;
+    document.getElementById('s-pending').textContent  = mine.filter(o => o.status === 'pending').length;
+    document.getElementById('s-executed').textContent = mine.filter(o => o.status === 'executed').length;
+    document.getElementById('s-settled').textContent  = mine.filter(o => o.status === 'settled').length;
+  }
+
+  // ── Place order ───────────────────────────────────────────────────────────
+  async function placeOrder() {
+    const qty   = parseInt(document.getElementById('f-qty').value);
+    const price = parseFloat(document.getElementById('f-price').value);
+    const stock = document.getElementById('f-stock').value;
+
+    if (!qty || qty < 1) return showMsg('Enter a valid quantity', 'error');
+    if (!price || price <= 0) return showMsg('Enter a valid price', 'error');
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Placing...';
+
+    try {
+      await fetch('http://localhost:8000/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          placed_by: profile,
+          option_type: selectedType,
+          stock,
+          quantity: qty,
+          price
+        })
+      });
+      showMsg('Order placed successfully', 'success');
+      document.getElementById('f-price').value = '';
+    } catch (e) {
+      showMsg('Failed to place order', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+    }
+  }
+
+  // ── Cancel order ──────────────────────────────────────────────────────────
+  async function cancelOrder(id) {
+    await fetch(`http://localhost:8000/orders/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'cancelled' })
+    });
+  }
+
+  // ── Form message ──────────────────────────────────────────────────────────
+  function showMsg(text, type) {
+    const el = document.getElementById('form-msg');
+    el.textContent = text;
+    el.className = `form-msg ${type}`;
+    setTimeout(() => { el.className = 'form-msg'; }, 3000);
+  }
+
+  // ── Handle WebSocket event ────────────────────────────────────────────────
+  function handleEvent(raw) {
+    let evt;
+    try { evt = JSON.parse(raw); } catch { return; }
+
+    const { operation, data } = evt;
+
+    // Only handle orders belonging to this client
+    if (data.placed_by !== profile) return;
+
+    if (operation === 'INSERT' || operation === 'UPDATE') {
+      orders[data.id] = data;
+      const cls = operation === 'INSERT' ? 'flash-new' : 'flash-update';
+      renderTable(data.id, cls);
+    } else if (operation === 'DELETE') {
+      renderTable(data.id, 'flash-cancel');
+      setTimeout(() => { delete orders[data.id]; renderTable(); }, 700);
+    }
+
+    updateStats();
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  let ws, reconnTimer;
+
+  function connect() {
+    ws = new WebSocket('ws://localhost:8000/ws');
+    ws.onopen    = () => { document.getElementById('ws-label').textContent = 'LIVE ●'; };
+    ws.onmessage = e => handleEvent(e.data);
+    ws.onclose   = () => {
+      document.getElementById('ws-label').textContent = 'DISCONNECTED';
+      reconnTimer = setTimeout(connect, 3000);
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadOrders();
+  connect();
+</script>
+</body>
+</html>

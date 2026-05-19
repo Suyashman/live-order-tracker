@@ -1,5 +1,25 @@
-#Create the postgresql database using these commands :
+# STAGE 1 
+Create the postgresql database using these commands :
 
 psql -U postgres -c "CREATE DATABASE orders_db;"
 psql -U postgres -d orders_db -f database/setup.sql
 
+-------------------------------\\\
+
+# STAGE 2
+
+
+# 1. Create the DB
+psql -U postgres -c "CREATE DATABASE orders_db;"
+psql -U postgres -d orders_db -f database/setup.sql
+
+# 2. Create backend/.env file with:
+# DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/orders_db
+
+# 3. Install packages
+pip install -r backend/requirements.txt
+
+# 4. Start server (from backend/ folder)
+uvicorn main:app --reload
+
+# 5. Open client/login.html in browser

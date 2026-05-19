@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>APT — Admin Desk</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #050608;
+      --surface:   #0d0f12;
+      --surface2:  #111418;
+      --border:    #181c22;
+      --muted:     #2a3040;
+      --text:      #e2eaf5;
+      --dim:       #4a5568;
+      --accent:    #c8f135;
+      --call:      #3dffa0;
+      --put:       #ff6b8a;
+      --pending:   #f5c842;
+      --executed:  #4a9eff;
+      --settled:   #3dffa0;
+      --cancelled: #6b7280;
+      --rejected:  #ff4d6a;
+      --mono:      'JetBrains Mono', monospace;
+      --display:   'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    .page { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── Topbar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+
+    .back-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 10px;
+      transition: all 0.2s;
+    }
+
+    .back-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    .admin-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(200,241,53,0.06);
+      border: 1px solid rgba(200,241,53,0.2);
+      border-radius: 6px;
+      padding: 6px 14px;
+    }
+
+    .admin-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .admin-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+    }
+
+    .ws-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 6px;
+    }
+
+    .stat-val {
+      font-family: var(--mono);
+      font-size: 26px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .stat-val.c-pending   { color: var(--pending); }
+    .stat-val.c-executed  { color: var(--executed); }
+    .stat-val.c-settled   { color: var(--settled); }
+    .stat-val.c-rejected  { color: var(--rejected); }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .filter-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+      margin-right: 4px;
+    }
+
+    .filter-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+
+    .filter-btn:hover  { color: var(--text); border-color: var(--muted); }
+    .filter-btn.active { color: var(--accent); border-color: rgba(200,241,53,0.4); background: rgba(200,241,53,0.05); }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--dim);
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    tbody td {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 11px 14px;
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    td.dim-col { color: var(--dim); font-size: 11px; }
+
+    .client-tag {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+
+    .type-badge {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+
+    .type-badge.CALL { background: rgba(61,255,160,0.1); color: var(--call); }
+    .type-badge.PUT  { background: rgba(255,107,138,0.1); color: var(--put); }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+    }
+
+    .status-badge.pending   { background: rgba(245,200,66,0.1);  color: var(--pending);   }
+    .status-badge.pending::before   { background: var(--pending); }
+    .status-badge.executed  { background: rgba(74,158,255,0.1);  color: var(--executed);  }
+    .status-badge.executed::before  { background: var(--executed); }
+    .status-badge.settled   { background: rgba(61,255,160,0.1);  color: var(--settled);   }
+    .status-badge.settled::before   { background: var(--settled); }
+    .status-badge.cancelled { background: rgba(107,114,128,0.1); color: var(--cancelled); }
+    .status-badge.cancelled::before { background: var(--cancelled); }
+    .status-badge.rejected  { background: rgba(255,77,106,0.1);  color: var(--rejected);  }
+    .status-badge.rejected::before  { background: var(--rejected); }
+
+    /* ── Action buttons ── */
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .act-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .act-btn.execute {
+      border-color: rgba(74,158,255,0.35);
+      color: var(--executed);
+    }
+    .act-btn.execute:hover { background: rgba(74,158,255,0.1); }
+
+    .act-btn.settle {
+      border-color: rgba(61,255,160,0.35);
+      color: var(--settled);
+    }
+    .act-btn.settle:hover { background: rgba(61,255,160,0.1); }
+
+    .act-btn.reject {
+      border-color: rgba(255,77,106,0.35);
+      color: var(--rejected);
+    }
+    .act-btn.reject:hover { background: rgba(255,77,106,0.1); }
+
+    .no-action {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    .empty-row td {
+      text-align: center;
+      padding: 48px;
+      color: var(--dim);
+      font-size: 12px;
+    }
+
+    /* ── Event log ── */
+    .log-section { margin-top: 20px; }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .clear-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .clear-btn:hover { color: var(--text); border-color: var(--muted); }
+
+    #event-log {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    #event-log::-webkit-scrollbar { width: 4px; }
+    #event-log::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+
+    .log-entry {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 11px;
+      animation: slide-in 0.2s ease-out;
+    }
+
+    .log-entry:last-child { border-bottom: none; }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-time { color: var(--dim); font-size: 10px; flex-shrink: 0; }
+    .log-op { font-weight: 500; width: 56px; flex-shrink: 0; }
+    .log-op.INSERT { color: var(--call); }
+    .log-op.UPDATE { color: var(--executed); }
+    .log-op.DELETE { color: var(--rejected); }
+    .log-msg { color: var(--dim); }
+    .log-msg strong { color: var(--text); font-weight: 400; }
+
+    .empty-log {
+      padding: 24px;
+      text-align: center;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    /* Flash */
+    @keyframes flash-green { 0%{background:rgba(61,255,160,0.1)} 100%{background:transparent} }
+    @keyframes flash-blue  { 0%{background:rgba(74,158,255,0.1)} 100%{background:transparent} }
+    @keyframes flash-red   { 0%{background:rgba(255,77,106,0.1)} 100%{background:transparent} }
+
+    tr.flash-new    { animation: flash-green 1s ease-out; }
+    tr.flash-update { animation: flash-blue  1s ease-out; }
+    tr.flash-del    { animation: flash-red   1s ease-out; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a class="back-btn" href="login.html">← Profiles</a>
+      <div class="admin-pill">
+        <div class="admin-dot"></div>
+        <span class="admin-label">ADMIN · EXCHANGE DESK</span>
+      </div>
+    </div>
+    <span class="ws-badge" id="ws-label">CONNECTING...</span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Total Orders</div>
+      <div class="stat-val" id="s-total">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Pending</div>
+      <div class="stat-val c-pending" id="s-pending">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Executed</div>
+      <div class="stat-val c-executed" id="s-executed">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Settled</div>
+      <div class="stat-val c-settled" id="s-settled">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Rejected</div>
+      <div class="stat-val c-rejected" id="s-rejected">0</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <span class="filter-label">FILTER:</span>
+    <button class="filter-btn active" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" onclick="setFilter('pending')">Pending</button>
+    <button class="filter-btn" onclick="setFilter('executed')">Executed</button>
+    <button class="filter-btn" onclick="setFilter('settled')">Settled</button>
+    <button class="filter-btn" onclick="setFilter('cancelled')">Cancelled</button>
+    <button class="filter-btn" onclick="setFilter('rejected')">Rejected</button>
+  </div>
+
+  <!-- Orders table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Client</th>
+          <th>Type</th>
+          <th>Stock</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th>Status</th>
+          <th>Updated</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="orders-body">
+        <tr class="empty-row"><td colspan="9">Loading orders...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Event log -->
+  <div class="log-section">
+    <div class="log-header">
+      <span class="section-label">Live Event Log</span>
+      <button class="clear-btn" onclick="clearLog()">Clear</button>
+    </div>
+    <div id="event-log">
+      <div class="empty-log">Waiting for events...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let orders = {};
+  let activeFilter = 'all';
+
+  // ── Filter ────────────────────────────────────────────────────────────────
+  function setFilter(f) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent.toLowerCase() === f || (f === 'all' && b.textContent === 'All'));
+    });
+    renderTable();
+  }
+
+  // ── Load all orders ───────────────────────────────────────────────────────
+  async function loadOrders() {
+    try {
+      const res = await fetch('http://localhost:8000/orders');
+      const data = await res.json();
+      data.forEach(o => { orders[o.id] = o; });
+      renderTable();
+      updateStats();
+    } catch (e) {
+      console.error('Load failed:', e);
+    }
+  }
+
+  // ── Render table ──────────────────────────────────────────────────────────
+  function renderTable(flashId = null, flashClass = '') {
+    const tbody = document.getElementById('orders-body');
+    let list = Object.values(orders).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+    if (activeFilter !== 'all') {
+      list = list.filter(o => o.status === activeFilter);
+    }
+
+    if (!list.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="9">No orders${activeFilter !== 'all' ? ' with status: ' + activeFilter : ''}.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map(o => `
+      <tr id="row-${o.id}" class="${flashId == o.id ? flashClass : ''}">
+        <td class="dim-col">#${o.id}</td>
+        <td><span class="client-tag">${esc(o.placed_by)}</span></td>
+        <td><span class="type-badge ${o.option_type}">${o.option_type}</span></td>
+        <td>${esc(o.stock)}</td>
+        <td>${o.quantity}</td>
+        <td>₹${parseFloat(o.price).toFixed(2)}</td>
+        <td><span class="status-badge ${o.status}">${o.status}</span></td>
+        <td class="dim-col">${new Date(o.updated_at).toLocaleTimeString()}</td>
+        <td>${actionsFor(o)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function actionsFor(o) {
+    if (o.status === 'pending') return `
+      <div class="actions">
+        <button class="act-btn execute" onclick="updateStatus(${o.id},'executed')">Execute</button>
+        <button class="act-btn reject"  onclick="updateStatus(${o.id},'rejected')">Reject</button>
+      </div>`;
+    if (o.status === 'executed') return `
+      <div class="actions">
+        <button class="act-btn settle" onclick="updateStatus(${o.id},'settled')">Settle</button>
+        <button class="act-btn reject" onclick="updateStatus(${o.id},'rejected')">Reject</button>
+      </div>`;
+    return '<span class="no-action">—</span>';
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  function updateStats() {
+    const v = Object.values(orders);
+    document.getElementById('s-total').textContent    = v.length;
+    document.getElementById('s-pending').textContent  = v.filter(o => o.status === 'pending').length;
+    document.getElementById('s-executed').textContent = v.filter(o => o.status === 'executed').length;
+    document.getElementById('s-settled').textContent  = v.filter(o => o.status === 'settled').length;
+    document.getElementById('s-rejected').textContent = v.filter(o => o.status === 'rejected').length;
+  }
+
+  // ── Update status ─────────────────────────────────────────────────────────
+  async function updateStatus(id, status) {
+    await fetch(`http://localhost:8000/orders/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+  }
+
+  // ── Log ───────────────────────────────────────────────────────────────────
+  function logEvent(op, data) {
+    const log = document.getElementById('event-log');
+    const empty = log.querySelector('.empty-log');
+    if (empty) empty.remove();
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+
+    let msg = '';
+    if (op === 'INSERT') msg = `<strong>${esc(data.placed_by)}</strong> placed ${data.option_type} on <strong>${esc(data.stock)}</strong> × ${data.quantity} @ ₹${parseFloat(data.price).toFixed(2)}`;
+    else if (op === 'UPDATE') msg = `Order #${data.id} (${esc(data.placed_by)}) → <strong>${data.status}</strong>`;
+    else if (op === 'DELETE') msg = `Order #${data.id} deleted`;
+
+    entry.innerHTML = `
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+      <span class="log-op ${op}">${op}</span>
+      <span class="log-msg">${msg}</span>
+    `;
+    log.prepend(entry);
+    const entries = log.querySelectorAll('.log-entry');
+    if (entries.length > 60) entries[entries.length - 1].remove();
+  }
+
+  function clearLog() {
+    document.getElementById('event-log').innerHTML = '<div class="empty-log">Log cleared.</div>';
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  function handleEvent(raw) {
+    let evt;
+    try { evt = JSON.parse(raw); } catch { return; }
+    const { operation, data } = evt;
+
+    if (operation === 'INSERT') {
+      orders[data.id] = data;
+      renderTable(data.id, 'flash-new');
+    } else if (operation === 'UPDATE') {
+      orders[data.id] = data;
+      renderTable(data.id, 'flash-update');
+    } else if (operation === 'DELETE') {
+      renderTable(data.id, 'flash-del');
+      setTimeout(() => { delete orders[data.id]; renderTable(); }, 700);
+    }
+
+    updateStats();
+    logEvent(operation, data);
+  }
+
+  let ws;
+  function connect() {
+    ws = new WebSocket('ws://localhost:8000/ws');
+    ws.onopen    = () => { document.getElementById('ws-label').textContent = 'LIVE ●'; };
+    ws.onmessage = e => handleEvent(e.data);
+    ws.onclose   = () => {
+      document.getElementById('ws-label').textContent = 'DISCONNECTED';
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = () => ws.close();
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadOrders();
+  connect();
+</script>
+</body>
+</html>
