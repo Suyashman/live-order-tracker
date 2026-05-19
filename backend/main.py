@@ -9,6 +9,7 @@ FastAPI server that:
 """
 
 import asyncio
+import asyncpg
 import json
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -114,18 +115,56 @@ async def match_orders(new_order_id: int, conn: asyncpg.Connection = None):
             if not match:
                 return  # No match yet — stays pending
 
-            # Determine trade price (price of the older resting order)
-            trade_price = match['price']
-            trade_qty   = min(order['quantity'], match['quantity'])
+            # ── Partial fill logic ────────────────────────────────────────
+            # Trade only as many shares as both sides can offer
+            trade_price   = match['price']
+            trade_qty     = min(order['quantity'], match['quantity'])
+            order_remain  = order['quantity'] - trade_qty
+            match_remain  = match['quantity'] - trade_qty
 
             buy_id  = new_order_id if order['order_type'] == 'BUY' else match['id']
             sell_id = match['id']  if order['order_type'] == 'BUY' else new_order_id
 
-            # Mark both orders as matched
-            await conn.execute(
-                "UPDATE orders SET status='matched', updated_at=NOW() WHERE id = ANY($1::int[])",
-                [order['id'], match['id']]
-            )
+            # Close fully filled side(s), leave partial remainder as new pending order
+            if order_remain == 0:
+                await conn.execute(
+                    "UPDATE orders SET status='matched', updated_at=NOW() WHERE id=$1",
+                    order['id']
+                )
+            else:
+                # This order is partially filled — close it and insert remainder
+                await conn.execute(
+                    "UPDATE orders SET status='matched', updated_at=NOW() WHERE id=$1",
+                    order['id']
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO orders (placed_by, stock_symbol, order_type, quantity, price, status)
+                    VALUES ($1, $2, $3, $4, $5, 'pending')
+                    """,
+                    order['placed_by'], order['stock_symbol'],
+                    order['order_type'], order_remain, order['price']
+                )
+
+            if match_remain == 0:
+                await conn.execute(
+                    "UPDATE orders SET status='matched', updated_at=NOW() WHERE id=$1",
+                    match['id']
+                )
+            else:
+                # Resting order partially filled — close it and insert remainder
+                await conn.execute(
+                    "UPDATE orders SET status='matched', updated_at=NOW() WHERE id=$1",
+                    match['id']
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO orders (placed_by, stock_symbol, order_type, quantity, price, status)
+                    VALUES ($1, $2, $3, $4, $5, 'pending')
+                    """,
+                    match['placed_by'], match['stock_symbol'],
+                    match['order_type'], match_remain, match['price']
+                )
 
             # Record the trade
             await conn.execute(

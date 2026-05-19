@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>APT Exchange — Trader</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
     :root {
       --bg:       #07080a;
@@ -24,611 +24,410 @@
       --cancelled:#6b7a8d;
       --mono:     'DM Mono', monospace;
       --body:     'DM Sans', sans-serif;
-      --display:  'Bebas Neue', sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--body);
-      font-size: 14px;
-      min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-family: var(--body); font-size: 13px;
+      min-height: 100vh; overflow-x: hidden;
     }
 
-    /* ── Toast notifications ─────────────────────────────────── */
-    #toast-container {
-      position: fixed;
-      top: 20px; right: 20px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
+    /* ── Toasts ──────────────────────────────────────────────── */
+    #toasts {
+      position: fixed; top: 12px; right: 12px;
+      z-index: 9999; display: flex;
+      flex-direction: column; gap: 8px; pointer-events: none;
     }
-
     .toast {
-      background: var(--panel);
-      border-radius: 8px;
-      padding: 14px 18px;
-      min-width: 280px;
-      max-width: 360px;
+      background: var(--panel); border-radius: 7px;
+      padding: 10px 14px; min-width: 220px; max-width: 300px;
       pointer-events: all;
-      animation: toast-in 0.3s ease-out forwards;
       border-left: 3px solid var(--green);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+      animation: t-in 0.25s ease-out forwards;
     }
-
     .toast.error   { border-left-color: var(--red); }
     .toast.warning { border-left-color: var(--accent); }
     .toast.info    { border-left-color: var(--blue); }
-
     .toast-title {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      font-weight: 500;
-      margin-bottom: 4px;
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.1em; margin-bottom: 3px; color: var(--green);
     }
-
     .toast.error .toast-title   { color: var(--red); }
     .toast.warning .toast-title { color: var(--accent); }
     .toast.info .toast-title    { color: var(--blue); }
-    .toast .toast-title         { color: var(--green); }
+    .toast-body { font-size: 12px; color: var(--text); line-height: 1.4; }
+    @keyframes t-in  { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:none} }
+    @keyframes t-out { from{opacity:1;max-height:80px;padding:10px 14px} to{opacity:0;max-height:0;padding:0;margin:0} }
+    .toast.out { animation: t-out 0.25s ease-in forwards; }
 
-    .toast-body {
-      font-size: 13px;
-      color: var(--text);
-      line-height: 1.4;
-    }
-
-    @keyframes toast-in {
-      from { opacity: 0; transform: translateX(20px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-
-    @keyframes toast-out {
-      from { opacity: 1; transform: translateX(0); max-height: 100px; }
-      to   { opacity: 0; transform: translateX(20px); max-height: 0; padding: 0; margin: 0; }
-    }
-
-    .toast.removing { animation: toast-out 0.3s ease-in forwards; }
-
-    /* ── Layout ───────────────────────────────────────────────── */
+    /* ── Topbar ──────────────────────────────────────────────── */
     .topbar {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      padding: 14px 24px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; border-bottom: 1px solid var(--border);
+      background: var(--panel); position: sticky; top: 0; z-index: 50;
     }
-
-    .topbar-left { display: flex; align-items: center; gap: 14px; }
-
+    .tl { display: flex; align-items: center; gap: 10px; }
     .back {
-      font-family: var(--mono); font-size: 11px;
-      color: var(--dim); text-decoration: none;
-      border: 1px solid var(--border); border-radius: 4px;
-      padding: 5px 10px; transition: all 0.15s;
+      font-family: var(--mono); font-size: 10px; color: var(--dim);
+      text-decoration: none; border: 1px solid var(--border);
+      border-radius: 4px; padding: 4px 8px; transition: all 0.15s;
     }
     .back:hover { color: var(--text); border-color: var(--muted); }
-
-    .user-chip {
-      display: flex; align-items: center; gap: 8px;
+    .chip {
+      display: flex; align-items: center; gap: 6px;
       background: rgba(34,208,122,0.06);
       border: 1px solid rgba(34,208,122,0.18);
-      border-radius: 6px; padding: 6px 14px;
+      border-radius: 5px; padding: 4px 10px;
     }
-
-    .live-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 6px var(--green);
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 5px var(--green);
       animation: pulse 2s infinite;
     }
-
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .chip-name { font-family: var(--mono); font-size: 11px; color: var(--green); letter-spacing: 0.06em; }
+    .ws-tag { font-family: var(--mono); font-size: 10px; color: var(--dim); }
 
-    .user-name {
-      font-family: var(--mono); font-size: 12px;
-      color: var(--green); letter-spacing: 0.06em;
-    }
-
-    .ws-tag {
-      font-family: var(--mono); font-size: 10px;
-      color: var(--dim); letter-spacing: 0.1em;
-    }
-
-    /* ── Main grid ─────────────────────────────────────────────── */
-    .main {
+    /* ── Page grid: 3 columns ────────────────────────────────── */
+    .page {
       display: grid;
-      grid-template-columns: 300px 1fr 260px;
-      gap: 0;
-      height: calc(100vh - 53px);
+      grid-template-columns: 200px 1fr 200px;
+      height: calc(100vh - 41px);
+      overflow: hidden;
     }
 
-    /* ── Left: stock list + form ───────────────────────────────── */
-    .left-col {
-      border-right: 1px solid var(--border);
-      overflow-y: auto;
-      display: flex; flex-direction: column;
+    /* ── Shared column styles ────────────────────────────────── */
+    .col { overflow-y: auto; }
+    .col::-webkit-scrollbar { width: 3px; }
+    .col::-webkit-scrollbar-thumb { background: var(--muted); }
+
+    /* ── LEFT: stocks + order form ───────────────────────────── */
+    .left { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+
+    .sec-head {
+      padding: 7px 12px; font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase;
+      border-bottom: 1px solid var(--border); background: var(--bg);
+      position: sticky; top: 0; z-index: 1; flex-shrink: 0;
     }
 
-    .left-col::-webkit-scrollbar { width: 4px; }
-    .left-col::-webkit-scrollbar-thumb { background: var(--muted); }
-
-    /* Stock list */
-    .section-head {
-      padding: 12px 16px;
-      font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.22em; color: var(--dim);
-      text-transform: uppercase;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg);
-      position: sticky; top: 0; z-index: 1;
-    }
-
+    /* Stock rows */
     .stock-item {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      padding: 11px 16px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.12s;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background 0.12s; flex-shrink: 0;
     }
-
-    .stock-item:hover { background: rgba(255,255,255,0.025); }
-    .stock-item.active { background: rgba(34,208,122,0.06); border-left: 2px solid var(--green); }
-
-    .stock-sym {
-      font-family: var(--mono); font-size: 13px;
-      font-weight: 500; color: var(--text);
-    }
-
-    .stock-name {
-      font-size: 11px; color: var(--dim); margin-top: 2px;
-    }
-
-    .stock-price {
-      text-align: right;
-    }
-
-    .price-val {
-      font-family: var(--mono); font-size: 13px;
-      font-weight: 500; color: var(--green);
-    }
-
-    .stock-qty {
-      font-family: var(--mono); font-size: 10px;
-      color: var(--dim); margin-top: 2px;
-    }
+    .stock-item:hover { background: rgba(255,255,255,0.02); }
+    .stock-item.active { background: rgba(34,208,122,0.05); border-left: 2px solid var(--green); }
+    .s-sym { font-family: var(--mono); font-size: 11px; font-weight: 500; }
+    .s-co  { font-size: 10px; color: var(--dim); margin-top: 1px;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+    .s-price { font-family: var(--mono); font-size: 11px; color: var(--green); text-align: right; }
+    .s-qty { font-size: 10px; color: var(--dim); text-align: right; margin-top: 1px; }
 
     /* Order form */
     .order-form {
-      padding: 16px;
-      border-top: 1px solid var(--border);
-      background: var(--panel);
+      padding: 10px 12px; border-top: 1px solid var(--border);
+      background: var(--panel); flex-shrink: 0;
     }
-
-    .form-title {
+    .form-label {
       font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.2em; color: var(--dim);
-      text-transform: uppercase; margin-bottom: 14px;
+      letter-spacing: 0.18em; color: var(--dim);
+      text-transform: uppercase; margin-bottom: 10px;
     }
-
-    .buy-sell {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 6px; margin-bottom: 14px;
-    }
-
+    .bs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
     .bs-btn {
-      padding: 9px; border-radius: 5px;
-      border: 1px solid var(--border);
-      background: transparent;
-      font-family: var(--mono); font-size: 12px;
-      font-weight: 500; letter-spacing: 0.1em;
-      cursor: pointer; transition: all 0.15s;
-      color: var(--dim);
+      padding: 7px; border-radius: 4px; border: 1px solid var(--border);
+      background: transparent; font-family: var(--mono); font-size: 11px;
+      font-weight: 500; letter-spacing: 0.08em; cursor: pointer;
+      transition: all 0.12s; color: var(--dim);
     }
-
-    .bs-btn.buy.active  { background: rgba(34,208,122,0.12);  border-color: var(--green); color: var(--green); }
-    .bs-btn.sell.active { background: rgba(240,64,96,0.12);   border-color: var(--red);   color: var(--red); }
-
-    .field { margin-bottom: 12px; }
-
+    .bs-btn.buy.active  { background: rgba(34,208,122,0.1);  border-color: var(--green); color: var(--green); }
+    .bs-btn.sell.active { background: rgba(240,64,96,0.1);   border-color: var(--red);   color: var(--red); }
+    .field { margin-bottom: 8px; }
     .field label {
-      display: block;
-      font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.15em; color: var(--dim);
-      text-transform: uppercase; margin-bottom: 5px;
+      display: block; font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.12em; color: var(--dim);
+      text-transform: uppercase; margin-bottom: 4px;
     }
-
     .field input, .field select {
-      width: 100%; padding: 9px 11px;
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      color: var(--text);
-      font-family: var(--mono); font-size: 13px;
-      outline: none; transition: border-color 0.15s;
-      appearance: none;
+      width: 100%; padding: 7px 9px;
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text);
+      font-family: var(--mono); font-size: 11px;
+      outline: none; transition: border-color 0.12s; appearance: none;
     }
-
     .field input:focus, .field select:focus { border-color: var(--muted); }
     .field select option { background: #0e1014; }
-
     .place-btn {
-      width: 100%; padding: 11px;
-      border-radius: 6px; border: none;
-      font-family: var(--display); font-size: 18px;
-      letter-spacing: 0.06em;
-      cursor: pointer; transition: all 0.2s;
+      width: 100%; padding: 9px; border-radius: 5px; border: none;
+      font-family: var(--mono); font-size: 12px; font-weight: 500;
+      letter-spacing: 0.1em; cursor: pointer; transition: all 0.15s;
     }
-
     .place-btn.buy  { background: var(--green); color: #050a06; }
     .place-btn.sell { background: var(--red);   color: #fff; }
-    .place-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
-    .place-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .place-btn:hover { filter: brightness(1.1); }
+    .place-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* ── Middle: order tables ──────────────────────────────────── */
-    .mid-col {
-      overflow-y: auto;
-      padding: 0;
-    }
+    /* ── MIDDLE: open orders + history ──────────────────────── */
+    .mid { border-right: 1px solid var(--border); }
 
-    .mid-col::-webkit-scrollbar { width: 4px; }
-    .mid-col::-webkit-scrollbar-thumb { background: var(--muted); }
+    .tbl-sec { border-bottom: 1px solid var(--border); }
 
-    .table-section { border-bottom: 1px solid var(--border); }
-
-    .table-section-head {
-      display: flex; align-items: center;
-      justify-content: space-between;
-      padding: 12px 18px;
-      background: var(--bg);
+    .tbl-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 14px; background: var(--bg);
       border-bottom: 1px solid var(--border);
       position: sticky; top: 0; z-index: 1;
     }
 
-    .ts-title {
+    .tbl-title {
       font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.22em; color: var(--dim);
-      text-transform: uppercase;
-      display: flex; align-items: center; gap: 8px;
+      letter-spacing: 0.18em; color: var(--dim);
+      text-transform: uppercase; display: flex; align-items: center; gap: 6px;
     }
 
-    .ts-count {
-      background: var(--muted);
-      border-radius: 10px;
-      padding: 1px 7px;
-      font-size: 9px; color: var(--text);
+    .cnt {
+      background: var(--muted); border-radius: 8px;
+      padding: 1px 6px; font-size: 9px; color: var(--text);
     }
 
     table { width: 100%; border-collapse: collapse; }
-
     thead th {
-      font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--dim); text-align: left;
-      padding: 10px 18px;
-      border-bottom: 1px solid var(--border);
+      font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--dim); text-align: left;
+      padding: 7px 14px; border-bottom: 1px solid var(--border);
     }
-
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      transition: background 0.12s;
-    }
-
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
     tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: rgba(255,255,255,0.018); }
-
+    tbody tr:hover { background: rgba(255,255,255,0.015); }
     tbody td {
-      font-family: var(--mono); font-size: 12px;
-      padding: 10px 18px; color: var(--text);
-      vertical-align: middle;
+      font-family: var(--mono); font-size: 11px;
+      padding: 8px 14px; color: var(--text); vertical-align: middle;
     }
-
-    td.dim { color: var(--dim); font-size: 11px; }
+    td.dim { color: var(--dim); font-size: 10px; }
 
     .type-tag {
-      font-size: 10px; font-weight: 500;
-      letter-spacing: 0.1em; padding: 2px 7px;
-      border-radius: 3px;
+      font-size: 9px; font-weight: 500; letter-spacing: 0.1em;
+      padding: 2px 6px; border-radius: 3px;
     }
-
     .type-tag.BUY  { background: rgba(34,208,122,0.1); color: var(--green); }
     .type-tag.SELL { background: rgba(240,64,96,0.1);  color: var(--red); }
 
-    .status-tag {
-      font-size: 10px; font-weight: 500;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 2px 8px; border-radius: 3px;
-      display: inline-flex; align-items: center; gap: 5px;
+    .st-tag {
+      font-size: 9px; font-weight: 500; letter-spacing: 0.07em;
+      text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+      display: inline-flex; align-items: center; gap: 4px;
     }
-
-    .status-tag::before {
-      content: ''; width: 5px; height: 5px; border-radius: 50%;
-    }
-
-    .status-tag.pending   { background: rgba(240,192,64,0.1);  color: var(--pending);   }
-    .status-tag.pending::before   { background: var(--pending); }
-    .status-tag.matched   { background: rgba(34,208,122,0.1);  color: var(--matched);   }
-    .status-tag.matched::before   { background: var(--matched); }
-    .status-tag.rejected  { background: rgba(240,64,96,0.1);   color: var(--rejected);  }
-    .status-tag.rejected::before  { background: var(--rejected); }
-    .status-tag.cancelled { background: rgba(107,122,141,0.1); color: var(--cancelled); }
-    .status-tag.cancelled::before { background: var(--cancelled); }
+    .st-tag::before { content:''; width:4px; height:4px; border-radius:50%; }
+    .st-tag.pending   { background:rgba(240,192,64,0.1);  color:var(--pending);   }
+    .st-tag.pending::before   { background:var(--pending); }
+    .st-tag.matched   { background:rgba(34,208,122,0.1);  color:var(--matched);   }
+    .st-tag.matched::before   { background:var(--matched); }
+    .st-tag.rejected  { background:rgba(240,64,96,0.1);   color:var(--rejected);  }
+    .st-tag.rejected::before  { background:var(--rejected); }
+    .st-tag.cancelled { background:rgba(107,122,141,0.1); color:var(--cancelled); }
+    .st-tag.cancelled::before { background:var(--cancelled); }
 
     .cancel-btn {
-      font-family: var(--mono); font-size: 10px;
-      padding: 3px 9px; border-radius: 3px;
-      border: 1px solid rgba(240,64,96,0.3);
+      font-family: var(--mono); font-size: 9px; padding: 3px 7px;
+      border-radius: 3px; border: 1px solid rgba(240,64,96,0.3);
       background: transparent; color: var(--red);
       cursor: pointer; transition: all 0.12s;
     }
-
     .cancel-btn:hover { background: rgba(240,64,96,0.08); }
 
     .empty-row td {
-      text-align: center; padding: 32px;
-      color: var(--dim); font-size: 12px;
+      text-align: center; padding: 24px;
+      color: var(--dim); font-size: 11px;
     }
 
-    /* ── Right: order book ─────────────────────────────────────── */
-    .right-col {
-      border-left: 1px solid var(--border);
-      overflow-y: auto;
-    }
-
-    .right-col::-webkit-scrollbar { width: 4px; }
-    .right-col::-webkit-scrollbar-thumb { background: var(--muted); }
+    /* ── RIGHT: order book ───────────────────────────────────── */
+    .right { }
 
     .ob-head {
-      padding: 12px 14px;
-      background: var(--bg);
+      padding: 7px 12px; background: var(--bg);
       border-bottom: 1px solid var(--border);
-      font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.22em; color: var(--dim);
-      text-transform: uppercase;
       position: sticky; top: 0; z-index: 1;
     }
-
-    .ob-sym {
-      font-size: 14px; color: var(--text);
-      letter-spacing: 0.04em; margin-top: 4px;
-    }
-
-    .ob-label {
+    .ob-label-row {
       font-family: var(--mono); font-size: 9px;
-      letter-spacing: 0.15em; text-transform: uppercase;
-      padding: 8px 14px;
-      display: flex; justify-content: space-between;
+      letter-spacing: 0.15em; color: var(--dim); text-transform: uppercase;
     }
+    .ob-sym-val { font-family: var(--mono); font-size: 12px; color: var(--text); margin-top: 3px; }
 
-    .ob-label.sells { color: var(--red); }
-    .ob-label.buys  { color: var(--green); }
+    .ob-section-label {
+      display: flex; justify-content: space-between;
+      padding: 6px 12px; font-family: var(--mono); font-size: 9px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .ob-section-label.sells { color: var(--red); }
+    .ob-section-label.buys  { color: var(--green); }
+    .ob-section-label.neutral { color: var(--dim); }
 
     .ob-row {
-      display: flex;
-      align-items: center;
-      padding: 5px 14px;
-      font-family: var(--mono); font-size: 11px;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      position: relative;
+      display: flex; align-items: center;
+      padding: 4px 12px; font-family: var(--mono); font-size: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.025); position: relative;
     }
-
-    .ob-bar {
-      position: absolute;
-      top: 0; bottom: 0;
-      opacity: 0.08;
-    }
-
-    .ob-bar.sell { background: var(--red);   right: 0; }
-    .ob-bar.buy  { background: var(--green); right: 0; }
-
-    .ob-price { flex: 1; font-weight: 500; }
-    .ob-row.sell-row .ob-price { color: var(--red); }
-    .ob-row.buy-row  .ob-price { color: var(--green); }
-
+    .ob-bar { position: absolute; top:0; bottom:0; right:0; opacity:0.07; }
+    .ob-bar.sell { background: var(--red); }
+    .ob-bar.buy  { background: var(--green); }
+    .ob-price { flex:1; font-weight:500; }
+    .ob-row.sell-r .ob-price { color: var(--red); }
+    .ob-row.buy-r  .ob-price { color: var(--green); }
     .ob-qty   { color: var(--text); }
-    .ob-orders { color: var(--dim); font-size: 10px; text-align: right; width: 40px; }
+    .ob-num   { color: var(--dim); font-size: 9px; width: 28px; text-align: right; }
 
     .ob-spread {
-      padding: 8px 14px;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      font-family: var(--mono); font-size: 11px;
-      text-align: center; color: var(--accent);
+      padding: 5px 12px; text-align: center;
+      font-family: var(--mono); font-size: 10px; color: var(--accent);
       background: rgba(240,192,64,0.04);
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
     }
 
-    .ob-empty {
-      padding: 20px 14px; text-align: center;
-      font-family: var(--mono); font-size: 11px; color: var(--dim);
-    }
+    .ob-empty { padding: 12px; text-align: center; font-family: var(--mono); font-size: 10px; color: var(--dim); }
 
-    /* Recent trades in order book */
     .trade-row {
       display: flex; justify-content: space-between;
-      padding: 5px 14px;
-      font-family: var(--mono); font-size: 11px;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
+      padding: 4px 12px; font-family: var(--mono); font-size: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.025);
     }
-
-    .trade-row .t-price { color: var(--green); }
-    .trade-row .t-qty   { color: var(--text); }
-    .trade-row .t-time  { color: var(--dim); font-size: 10px; }
+    .t-price { color: var(--green); }
+    .t-qty   { color: var(--text); }
+    .t-time  { color: var(--dim); font-size: 9px; }
 
     /* Flash */
-    @keyframes fl-green { 0%{background:rgba(34,208,122,0.12)} 100%{background:transparent} }
-    @keyframes fl-red   { 0%{background:rgba(240,64,96,0.1)}   100%{background:transparent} }
-    @keyframes fl-blue  { 0%{background:rgba(74,158,255,0.1)}  100%{background:transparent} }
-
-    tr.fl-new    { animation: fl-green 0.9s ease-out; }
-    tr.fl-update { animation: fl-blue  0.9s ease-out; }
-    tr.fl-cancel { animation: fl-red   0.9s ease-out; }
+    @keyframes fl-g { 0%{background:rgba(34,208,122,0.1)} 100%{background:transparent} }
+    @keyframes fl-b { 0%{background:rgba(74,158,255,0.1)} 100%{background:transparent} }
+    @keyframes fl-r { 0%{background:rgba(240,64,96,0.1)}  100%{background:transparent} }
+    tr.fl-new { animation: fl-g 0.8s ease-out; }
+    tr.fl-upd { animation: fl-b 0.8s ease-out; }
+    tr.fl-del { animation: fl-r 0.8s ease-out; }
   </style>
 </head>
 <body>
 
-<div id="toast-container"></div>
+<div id="toasts"></div>
 
 <!-- Topbar -->
 <div class="topbar">
-  <div class="topbar-left">
-    <a class="back" href="login.html">← Profiles</a>
-    <div class="user-chip">
-      <div class="live-dot"></div>
-      <span class="user-name" id="uname">—</span>
+  <div class="tl">
+    <a class="back" href="login.html">← Back</a>
+    <div class="chip">
+      <div class="dot"></div>
+      <span class="chip-name" id="uname">—</span>
     </div>
   </div>
   <span class="ws-tag" id="ws-tag">CONNECTING...</span>
 </div>
 
-<div class="main">
+<div class="page">
 
-  <!-- LEFT: Stock list + form -->
-  <div class="left-col">
-    <div class="section-head">Market</div>
-    <div id="stock-list">
-      <!-- filled by JS -->
-    </div>
+  <!-- LEFT -->
+  <div class="col left">
+    <div class="sec-head">Market</div>
+    <div id="stock-list"></div>
 
-    <!-- Order form -->
     <div class="order-form">
-      <div class="form-title">Place Order</div>
-
-      <div class="buy-sell">
-        <button class="bs-btn buy active" id="btn-buy"  onclick="setOrderType('BUY')">▲ BUY</button>
-        <button class="bs-btn sell"       id="btn-sell" onclick="setOrderType('SELL')">▼ SELL</button>
+      <div class="form-label">Place Order</div>
+      <div class="bs-row">
+        <button class="bs-btn buy active" id="btn-buy"  onclick="setType('BUY')">▲ BUY</button>
+        <button class="bs-btn sell"       id="btn-sell" onclick="setType('SELL')">▼ SELL</button>
       </div>
-
       <div class="field">
         <label>Stock</label>
         <select id="f-stock"></select>
       </div>
-
       <div class="field">
-        <label>Quantity</label>
-        <input type="number" id="f-qty" min="1" value="1" placeholder="Qty"/>
+        <label>Qty</label>
+        <input type="number" id="f-qty" min="1" value="1"/>
       </div>
-
       <div class="field">
-        <label>Price (₹)</label>
+        <label>Price ₹</label>
         <input type="number" id="f-price" min="0.01" step="0.01" placeholder="0.00"/>
       </div>
-
       <button class="place-btn buy" id="place-btn" onclick="placeOrder()">BUY</button>
     </div>
   </div>
 
-  <!-- MIDDLE: Order tables -->
-  <div class="mid-col">
+  <!-- MIDDLE -->
+  <div class="col mid">
 
-    <!-- My Pending Orders -->
-    <div class="table-section">
-      <div class="table-section-head">
-        <span class="ts-title">
-          My Open Orders
-          <span class="ts-count" id="cnt-pending">0</span>
-        </span>
+    <!-- Open orders -->
+    <div class="tbl-sec">
+      <div class="tbl-head">
+        <span class="tbl-title">Open Orders <span class="cnt" id="cnt-open">0</span></span>
       </div>
       <table>
-        <thead>
-          <tr>
-            <th>ID</th><th>Type</th><th>Stock</th><th>Qty</th><th>Price</th><th>Status</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="tbl-pending">
-          <tr class="empty-row"><td colspan="7">No open orders</td></tr>
-        </tbody>
+        <thead><tr><th>ID</th><th>Type</th><th>Stock</th><th>Qty</th><th>Price</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tbl-open"><tr class="empty-row"><td colspan="7">No open orders</td></tr></tbody>
       </table>
     </div>
 
-    <!-- My Matched / Closed Orders -->
-    <div class="table-section">
-      <div class="table-section-head">
-        <span class="ts-title">
-          Order History
-          <span class="ts-count" id="cnt-history">0</span>
-        </span>
+    <!-- Order history -->
+    <div class="tbl-sec">
+      <div class="tbl-head">
+        <span class="tbl-title">Order History <span class="cnt" id="cnt-hist">0</span></span>
       </div>
       <table>
-        <thead>
-          <tr>
-            <th>ID</th><th>Type</th><th>Stock</th><th>Qty</th><th>Price</th><th>Status</th><th>Time</th>
-          </tr>
-        </thead>
-        <tbody id="tbl-history">
-          <tr class="empty-row"><td colspan="7">No history</td></tr>
-        </tbody>
+        <thead><tr><th>ID</th><th>Type</th><th>Stock</th><th>Qty</th><th>Price</th><th>Status</th><th>Time</th></tr></thead>
+        <tbody id="tbl-hist"><tr class="empty-row"><td colspan="7">No history</td></tr></tbody>
       </table>
     </div>
 
   </div>
 
-  <!-- RIGHT: Order book -->
-  <div class="right-col">
+  <!-- RIGHT: order book -->
+  <div class="col right">
     <div class="ob-head">
-      Order Book
-      <div class="ob-sym" id="ob-sym">Select a stock</div>
+      <div class="ob-label-row">Order Book</div>
+      <div class="ob-sym-val" id="ob-sym">—</div>
     </div>
 
-    <!-- Asks (sells) -->
-    <div class="ob-label sells">
-      <span>ASKS (SELL)</span>
-      <span>QTY</span>
-    </div>
+    <div class="ob-section-label sells"><span>Asks (Sell)</span><span>Qty</span></div>
     <div id="ob-asks"><div class="ob-empty">—</div></div>
 
-    <!-- Spread -->
     <div class="ob-spread" id="ob-spread">—</div>
 
-    <!-- Bids (buys) -->
-    <div class="ob-label buys">
-      <span>BIDS (BUY)</span>
-      <span>QTY</span>
-    </div>
+    <div class="ob-section-label buys"><span>Bids (Buy)</span><span>Qty</span></div>
     <div id="ob-bids"><div class="ob-empty">—</div></div>
 
-    <!-- Recent trades -->
-    <div class="ob-label" style="color:var(--dim); margin-top:8px;">
-      <span>RECENT TRADES</span>
-    </div>
+    <div class="ob-section-label neutral"><span>Recent Trades</span></div>
     <div id="ob-trades"><div class="ob-empty">—</div></div>
   </div>
 
 </div>
 
 <script>
-// ── Config ──────────────────────────────────────────────────────────────────
 const API  = 'http://localhost:8000';
 const WS   = 'ws://localhost:8000/ws';
 const user = sessionStorage.getItem('apt_user') || 'client_1';
 document.getElementById('uname').textContent = user.replace('_',' ').toUpperCase();
 
-// ── State ────────────────────────────────────────────────────────────────────
-let stocks   = {};   // symbol → stock
-let orders   = {};   // id → order
-let trades   = [];   // recent trades
-let selStock = null; // selected stock symbol
+let stocks   = {};
+let orders   = {};
+let trades   = [];
+let selStock = null;
 let orderType = 'BUY';
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────────────────
 function toast(title, body, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.innerHTML = `<div class="toast-title">${title}</div><div class="toast-body">${body}</div>`;
-  document.getElementById('toast-container').appendChild(el);
+  document.getElementById('toasts').appendChild(el);
   setTimeout(() => {
-    el.classList.add('removing');
-    setTimeout(() => el.remove(), 300);
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 260);
   }, 4000);
 }
 
-// ── Order type toggle ─────────────────────────────────────────────────────────
-function setOrderType(t) {
+// ── Type toggle ────────────────────────────────────────────────────────────
+function setType(t) {
   orderType = t;
   document.getElementById('btn-buy').classList.toggle('active',  t === 'BUY');
   document.getElementById('btn-sell').classList.toggle('active', t === 'SELL');
@@ -637,214 +436,177 @@ function setOrderType(t) {
   btn.className = `place-btn ${t.toLowerCase()}`;
 }
 
-// ── Load initial data ─────────────────────────────────────────────────────────
+// ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
-  const [stocksRes, ordersRes, tradesRes] = await Promise.all([
+  const [sr, or, tr] = await Promise.all([
     fetch(`${API}/stocks`),
     fetch(`${API}/orders/${user}`),
     fetch(`${API}/trades`),
   ]);
-  const stockList  = await stocksRes.json();
-  const orderList  = await ordersRes.json();
-  trades           = await tradesRes.json();
-
-  stockList.forEach(s => { stocks[s.symbol] = s; });
-  orderList.forEach(o => { orders[o.id] = o; });
+  (await sr.json()).forEach(s => { stocks[s.symbol] = s; });
+  (await or.json()).forEach(o => { orders[o.id] = o; });
+  trades = await tr.json();
 
   renderStockList();
   renderOrders();
-
-  // Select first stock by default
-  const first = stockList[0];
+  const first = Object.values(stocks)[0];
   if (first) selectStock(first.symbol);
 }
 
-// ── Stock list ────────────────────────────────────────────────────────────────
+// ── Stock list ─────────────────────────────────────────────────────────────
 function renderStockList() {
   const el = document.getElementById('stock-list');
   el.innerHTML = Object.values(stocks).map(s => `
-    <div class="stock-item ${selStock === s.symbol ? 'active' : ''}"
-         onclick="selectStock('${s.symbol}')">
+    <div class="stock-item ${selStock === s.symbol ? 'active' : ''}" onclick="selectStock('${s.symbol}')">
       <div>
-        <div class="stock-sym">${s.symbol}</div>
-        <div class="stock-name">${s.company_name}</div>
+        <div class="s-sym">${s.symbol}</div>
+        <div class="s-co">${s.company_name}</div>
       </div>
-      <div class="stock-price">
-        <div class="price-val">₹${parseFloat(s.last_price).toFixed(2)}</div>
-        <div class="stock-qty">Avail: ${s.available_qty}</div>
+      <div>
+        <div class="s-price">₹${parseFloat(s.last_price).toFixed(2)}</div>
+        <div class="s-qty">${s.available_qty} avl</div>
       </div>
     </div>
   `).join('');
 
-  // Populate stock dropdown in form
   const sel = document.getElementById('f-stock');
   const cur = sel.value;
   sel.innerHTML = Object.values(stocks).map(s =>
-    `<option value="${s.symbol}" ${s.symbol===cur?'selected':''}>${s.symbol} — ${s.company_name}</option>`
+    `<option value="${s.symbol}" ${s.symbol===cur?'selected':''}>${s.symbol}</option>`
   ).join('');
-
-  if (selStock) {
-    sel.value = selStock;
-    // Pre-fill price with last price
-    const s = stocks[selStock];
-    if (s) document.getElementById('f-price').value = parseFloat(s.last_price).toFixed(2);
-  }
+  if (selStock) sel.value = selStock;
 }
 
-// ── Select stock → load order book ───────────────────────────────────────────
+// ── Select stock ───────────────────────────────────────────────────────────
 async function selectStock(sym) {
   selStock = sym;
   document.getElementById('f-stock').value = sym;
   document.getElementById('ob-sym').textContent = sym;
   const s = stocks[sym];
   if (s) document.getElementById('f-price').value = parseFloat(s.last_price).toFixed(2);
-  renderStockList(); // update active state
+  renderStockList();
   await loadOrderBook(sym);
 }
 
+// ── Order book ─────────────────────────────────────────────────────────────
 async function loadOrderBook(sym) {
   try {
-    const res  = await fetch(`${API}/orderbook/${sym}`);
-    const data = await res.json();
-    renderOrderBook(data);
-  } catch(e) { console.error(e); }
+    const data = await (await fetch(`${API}/orderbook/${sym}`)).json();
+    renderOB(data);
+  } catch(e) {}
 }
 
-function renderOrderBook(data) {
-  const asks = data.asks || [];
-  const bids = data.bids || [];
+function renderOB(data) {
+  const asks = data.asks || [], bids = data.bids || [];
 
   const asksEl = document.getElementById('ob-asks');
-  const bidsEl = document.getElementById('ob-bids');
-
   if (!asks.length) {
-    asksEl.innerHTML = '<div class="ob-empty">No sell orders</div>';
+    asksEl.innerHTML = '<div class="ob-empty">No asks</div>';
   } else {
-    const maxQ = Math.max(...asks.map(r => Number(r.total_qty)));
+    const mx = Math.max(...asks.map(r => Number(r.total_qty)));
     asksEl.innerHTML = [...asks].reverse().map(r => {
-      const pct = Math.round((Number(r.total_qty)/maxQ)*80);
-      return `
-        <div class="ob-row sell-row">
-          <div class="ob-bar sell" style="width:${pct}%"></div>
-          <span class="ob-price">₹${parseFloat(r.price).toFixed(2)}</span>
-          <span class="ob-qty">${r.total_qty}</span>
-          <span class="ob-orders">${r.num_orders}x</span>
-        </div>`;
+      const pct = Math.round(Number(r.total_qty)/mx*75);
+      return `<div class="ob-row sell-r">
+        <div class="ob-bar sell" style="width:${pct}%"></div>
+        <span class="ob-price">₹${parseFloat(r.price).toFixed(2)}</span>
+        <span class="ob-qty">${r.total_qty}</span>
+        <span class="ob-num">${r.num_orders}x</span>
+      </div>`;
     }).join('');
   }
 
-  // Spread
   const spreadEl = document.getElementById('ob-spread');
-  if (asks.length && bids.length) {
-    const spread = (parseFloat(asks[0].price) - parseFloat(bids[0].price)).toFixed(2);
-    spreadEl.textContent = `Spread ₹${spread}`;
-  } else {
-    spreadEl.textContent = '—';
-  }
+  spreadEl.textContent = (asks.length && bids.length)
+    ? `Spread ₹${(parseFloat(asks[0].price) - parseFloat(bids[0].price)).toFixed(2)}`
+    : '—';
 
+  const bidsEl = document.getElementById('ob-bids');
   if (!bids.length) {
-    bidsEl.innerHTML = '<div class="ob-empty">No buy orders</div>';
+    bidsEl.innerHTML = '<div class="ob-empty">No bids</div>';
   } else {
-    const maxQ = Math.max(...bids.map(r => Number(r.total_qty)));
+    const mx = Math.max(...bids.map(r => Number(r.total_qty)));
     bidsEl.innerHTML = bids.map(r => {
-      const pct = Math.round((Number(r.total_qty)/maxQ)*80);
-      return `
-        <div class="ob-row buy-row">
-          <div class="ob-bar buy" style="width:${pct}%"></div>
-          <span class="ob-price">₹${parseFloat(r.price).toFixed(2)}</span>
-          <span class="ob-qty">${r.total_qty}</span>
-          <span class="ob-orders">${r.num_orders}x</span>
-        </div>`;
+      const pct = Math.round(Number(r.total_qty)/mx*75);
+      return `<div class="ob-row buy-r">
+        <div class="ob-bar buy" style="width:${pct}%"></div>
+        <span class="ob-price">₹${parseFloat(r.price).toFixed(2)}</span>
+        <span class="ob-qty">${r.total_qty}</span>
+        <span class="ob-num">${r.num_orders}x</span>
+      </div>`;
     }).join('');
   }
 
-  // Recent trades
+  const sym = data.symbol || selStock;
+  const stockTrades = trades.filter(t => t.stock_symbol === sym).slice(0,8);
   const tradesEl = document.getElementById('ob-trades');
-  const stockTrades = trades.filter(t => t.stock_symbol === (data.symbol || selStock)).slice(0,8);
-  if (!stockTrades.length) {
-    tradesEl.innerHTML = '<div class="ob-empty">No recent trades</div>';
-  } else {
-    tradesEl.innerHTML = stockTrades.map(t => `
-      <div class="trade-row">
-        <span class="t-price">₹${parseFloat(t.price).toFixed(2)}</span>
-        <span class="t-qty">${t.quantity}</span>
-        <span class="t-time">${new Date(t.executed_at).toLocaleTimeString()}</span>
-      </div>
-    `).join('');
-  }
+  tradesEl.innerHTML = !stockTrades.length
+    ? '<div class="ob-empty">No trades</div>'
+    : stockTrades.map(t => `
+        <div class="trade-row">
+          <span class="t-price">₹${parseFloat(t.price).toFixed(2)}</span>
+          <span class="t-qty">×${t.quantity}</span>
+          <span class="t-time">${new Date(t.executed_at).toLocaleTimeString()}</span>
+        </div>`).join('');
 }
 
-// ── Render order tables ───────────────────────────────────────────────────────
-function renderOrders(flashId = null, flashCls = '') {
+// ── Render orders ──────────────────────────────────────────────────────────
+function renderOrders(flashId = null, cls = '') {
   const mine = Object.values(orders).filter(o => o.placed_by === user);
   const open = mine.filter(o => o.status === 'pending');
   const hist = mine.filter(o => o.status !== 'pending')
-                   .sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at));
+                   .sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
 
-  document.getElementById('cnt-pending').textContent = open.length;
-  document.getElementById('cnt-history').textContent = hist.length;
+  document.getElementById('cnt-open').textContent = open.length;
+  document.getElementById('cnt-hist').textContent = hist.length;
 
-  const pending = document.getElementById('tbl-pending');
-  if (!open.length) {
-    pending.innerHTML = '<tr class="empty-row"><td colspan="7">No open orders</td></tr>';
-  } else {
-    pending.innerHTML = open.map(o => `
-      <tr id="row-${o.id}" class="${flashId==o.id?flashCls:''}">
-        <td class="dim">#${o.id}</td>
-        <td><span class="type-tag ${o.order_type}">${o.order_type}</span></td>
-        <td>${o.stock_symbol}</td>
-        <td>${o.quantity}</td>
-        <td>₹${parseFloat(o.price).toFixed(2)}</td>
-        <td><span class="status-tag pending">pending</span></td>
-        <td><button class="cancel-btn" onclick="cancelOrder(${o.id})">Cancel</button></td>
-      </tr>
-    `).join('');
-  }
+  const openTbl = document.getElementById('tbl-open');
+  openTbl.innerHTML = !open.length
+    ? '<tr class="empty-row"><td colspan="7">No open orders</td></tr>'
+    : open.map(o => `
+        <tr id="row-${o.id}" class="${flashId==o.id?cls:''}">
+          <td class="dim">#${o.id}</td>
+          <td><span class="type-tag ${o.order_type}">${o.order_type}</span></td>
+          <td>${o.stock_symbol}</td>
+          <td>${o.quantity}</td>
+          <td>₹${parseFloat(o.price).toFixed(2)}</td>
+          <td><span class="st-tag pending">pending</span></td>
+          <td><button class="cancel-btn" onclick="cancelOrder(${o.id})">✕</button></td>
+        </tr>`).join('');
 
-  const history = document.getElementById('tbl-history');
-  if (!hist.length) {
-    history.innerHTML = '<tr class="empty-row"><td colspan="7">No history</td></tr>';
-  } else {
-    history.innerHTML = hist.slice(0,20).map(o => `
-      <tr id="row-${o.id}" class="${flashId==o.id?flashCls:''}">
-        <td class="dim">#${o.id}</td>
-        <td><span class="type-tag ${o.order_type}">${o.order_type}</span></td>
-        <td>${o.stock_symbol}</td>
-        <td>${o.quantity}</td>
-        <td>₹${parseFloat(o.price).toFixed(2)}</td>
-        <td><span class="status-tag ${o.status}">${o.status}</span></td>
-        <td class="dim">${new Date(o.updated_at).toLocaleTimeString()}</td>
-      </tr>
-    `).join('');
-  }
+  const histTbl = document.getElementById('tbl-hist');
+  histTbl.innerHTML = !hist.length
+    ? '<tr class="empty-row"><td colspan="7">No history</td></tr>'
+    : hist.slice(0,20).map(o => `
+        <tr id="row-${o.id}" class="${flashId==o.id?cls:''}">
+          <td class="dim">#${o.id}</td>
+          <td><span class="type-tag ${o.order_type}">${o.order_type}</span></td>
+          <td>${o.stock_symbol}</td>
+          <td>${o.quantity}</td>
+          <td>₹${parseFloat(o.price).toFixed(2)}</td>
+          <td><span class="st-tag ${o.status}">${o.status}</span></td>
+          <td class="dim">${new Date(o.updated_at).toLocaleTimeString()}</td>
+        </tr>`).join('');
 }
 
-// ── Place order ───────────────────────────────────────────────────────────────
+// ── Place order ────────────────────────────────────────────────────────────
 async function placeOrder() {
   const stock = document.getElementById('f-stock').value;
   const qty   = parseInt(document.getElementById('f-qty').value);
   const price = parseFloat(document.getElementById('f-price').value);
-
   if (!stock) return toast('Error', 'Select a stock', 'error');
-  if (!qty || qty < 1) return toast('Error', 'Enter valid quantity', 'error');
-  if (!price || price <= 0) return toast('Error', 'Enter valid price', 'error');
+  if (!qty || qty < 1) return toast('Error', 'Invalid quantity', 'error');
+  if (!price || price <= 0) return toast('Error', 'Invalid price', 'error');
 
   const btn = document.getElementById('place-btn');
   btn.disabled = true;
-
   try {
-    const res = await fetch(`${API}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res  = await fetch(`${API}/orders`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ placed_by: user, stock_symbol: stock, order_type: orderType, quantity: qty, price })
     });
     const data = await res.json();
     if (data.error) { toast('Error', data.error, 'error'); return; }
-    toast(
-      `${orderType} Order Placed`,
-      `${qty} × ${stock} @ ₹${price.toFixed(2)} — waiting for match`,
-      'success'
-    );
+    toast(`${orderType} Order Placed`, `${qty} × ${stock} @ ₹${price.toFixed(2)}`, 'success');
     document.getElementById('f-qty').value = '1';
   } catch(e) {
     toast('Network Error', 'Could not reach server', 'error');
@@ -853,19 +615,17 @@ async function placeOrder() {
   }
 }
 
-// ── Cancel order ──────────────────────────────────────────────────────────────
+// ── Cancel ─────────────────────────────────────────────────────────────────
 async function cancelOrder(id) {
   await fetch(`${API}/orders/${id}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status: 'cancelled' })
   });
 }
 
-// ── Handle WS event ───────────────────────────────────────────────────────────
+// ── Handle WS event ────────────────────────────────────────────────────────
 function handleEvent(raw) {
-  let evt;
-  try { evt = JSON.parse(raw); } catch { return; }
+  let evt; try { evt = JSON.parse(raw); } catch { return; }
   const { table, operation, data } = evt;
 
   if (table === 'stocks') {
@@ -878,16 +638,13 @@ function handleEvent(raw) {
     trades.unshift(data);
     if (trades.length > 50) trades.pop();
     if (selStock === data.stock_symbol) loadOrderBook(selStock);
-
-    // Notify client if their order was matched
-    const myOrders = Object.values(orders).filter(o => o.placed_by === user);
-    const related = myOrders.find(o => o.id === data.buy_order_id || o.id === data.sell_order_id);
-    if (related) {
-      toast(
-        '🎉 Trade Executed!',
-        `Your ${related.order_type} of ${data.quantity} × ${data.stock_symbol} matched at ₹${parseFloat(data.price).toFixed(2)}`,
-        'success'
-      );
+    // notify client if their order was involved
+    const mine = Object.values(orders);
+    const rel  = mine.find(o => o.id === data.buy_order_id || o.id === data.sell_order_id);
+    if (rel) {
+      toast('🎉 Trade Executed',
+        `Your ${rel.order_type} of ${data.quantity} × ${data.stock_symbol} @ ₹${parseFloat(data.price).toFixed(2)}`,
+        'success');
     }
     return;
   }
@@ -895,32 +652,23 @@ function handleEvent(raw) {
   if (table === 'orders') {
     if (operation === 'INSERT' || operation === 'UPDATE') {
       orders[data.id] = data;
-      const cls = operation === 'INSERT' ? 'fl-new' : 'fl-update';
+      const cls = operation === 'INSERT' ? 'fl-new' : 'fl-upd';
       renderOrders(data.id, cls);
-
-      // Notify this client if their order changed status
       if (data.placed_by === user && operation === 'UPDATE') {
-        if (data.status === 'matched') {
-          // trade toast already handled above
-        } else if (data.status === 'rejected') {
-          toast('Order Rejected', `Your ${data.order_type} order #${data.id} on ${data.stock_symbol} was rejected by admin`, 'error');
-        } else if (data.status === 'cancelled') {
+        if (data.status === 'rejected')
+          toast('Order Rejected', `#${data.id} ${data.order_type} on ${data.stock_symbol} rejected by admin`, 'error');
+        else if (data.status === 'cancelled')
           toast('Order Cancelled', `Order #${data.id} cancelled`, 'warning');
-        }
       }
     } else if (operation === 'DELETE') {
-      renderOrders(data.id, 'fl-cancel');
+      renderOrders(data.id, 'fl-del');
       setTimeout(() => { delete orders[data.id]; renderOrders(); }, 700);
     }
-
-    // Refresh order book if it's for the selected stock
-    if (selStock && data.stock_symbol === selStock) {
-      loadOrderBook(selStock);
-    }
+    if (selStock && data.stock_symbol === selStock) loadOrderBook(selStock);
   }
 }
 
-// ── WebSocket ─────────────────────────────────────────────────────────────────
+// ── WebSocket ──────────────────────────────────────────────────────────────
 let ws;
 function connect() {
   ws = new WebSocket(WS);
@@ -933,8 +681,7 @@ function connect() {
   ws.onerror = () => ws.close();
 }
 
-init();
-connect();
+init(); connect();
 </script>
 </body>
 </html>

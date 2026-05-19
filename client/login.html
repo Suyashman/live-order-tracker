@@ -4,270 +4,106 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>APT Exchange — Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --bg:      #07080a;
-      --panel:   #0e1014;
-      --border:  #1a1e26;
-      --accent:  #f0c040;
-      --green:   #22d07a;
-      --text:    #dce8f0;
-      --dim:     #485468;
-      --mono:    'DM Mono', monospace;
-      --body:    'DM Sans', sans-serif;
-      --display: 'Bebas Neue', sans-serif;
+      --bg:     #07080a;
+      --panel:  #0e1014;
+      --border: #1a1e26;
+      --muted:  #252c38;
+      --text:   #dce8f0;
+      --dim:    #485468;
+      --green:  #22d07a;
+      --accent: #f0c040;
+      --mono:   'DM Mono', monospace;
+      --body:   'DM Sans', sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      background: var(--bg);
-      font-family: var(--body);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
+      background: var(--bg); font-family: var(--body);
+      min-height: 100vh; display: flex;
+      align-items: center; justify-content: center; padding: 24px;
     }
-
-    /* diagonal rule background */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background:
-        repeating-linear-gradient(
-          -45deg,
-          transparent,
-          transparent 40px,
-          rgba(255,255,255,0.012) 40px,
-          rgba(255,255,255,0.012) 41px
-        );
-      pointer-events: none;
-    }
-
-    /* glow blob */
-    body::after {
-      content: '';
-      position: fixed;
-      width: 700px; height: 700px;
-      background: radial-gradient(circle, rgba(240,192,64,0.04) 0%, transparent 70%);
-      top: 50%; left: 50%;
-      transform: translate(-50%,-50%);
-      pointer-events: none;
-    }
-
-    .wrap {
-      position: relative; z-index: 1;
-      width: 100%; max-width: 900px;
-      padding: 40px 24px;
-    }
-
-    /* Header */
-    .hd {
-      text-align: center;
-      margin-bottom: 52px;
-    }
-
-    .ticker-row {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.25em;
-      color: var(--accent);
-      margin-bottom: 16px;
-      display: flex;
-      justify-content: center;
-      gap: 32px;
-    }
-
-    .ticker-item { display: flex; align-items: center; gap: 6px; }
-    .ticker-item span { color: var(--green); }
-
-    h1 {
-      font-family: var(--display);
-      font-size: clamp(52px, 10vw, 96px);
-      letter-spacing: 0.04em;
-      color: var(--text);
-      line-height: 0.9;
-      margin-bottom: 10px;
-    }
-
-    h1 em {
-      font-style: normal;
-      -webkit-text-stroke: 1px var(--accent);
-      color: transparent;
-    }
-
-    .sub {
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--dim);
-      letter-spacing: 0.08em;
-    }
-
-    /* Cards */
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .admin-row {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
-
-    .card {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 16px;
+    .box {
+      width: 100%; max-width: 440px;
       background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px 22px;
-      text-decoration: none;
-      cursor: pointer;
-      transition: border-color 0.2s, transform 0.2s;
-      overflow: hidden;
+      border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
     }
-
-    .card::after {
-      content: '';
-      position: absolute; inset: 0;
-      opacity: 0;
-      transition: opacity 0.2s;
+    .box-head { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+    .box-title { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+    .box-sub { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: 0.04em; }
+    .profiles { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .profile-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 14px; background: transparent;
+      border: 1px solid var(--border); border-radius: 7px;
+      cursor: pointer; text-decoration: none; transition: all 0.15s; width: 100%;
     }
-
-    .card.client::after {
-      background: radial-gradient(ellipse at 0% 0%, rgba(34,208,122,0.06), transparent 60%);
-    }
-    .card.admin::after {
-      background: radial-gradient(ellipse at 0% 0%, rgba(240,192,64,0.08), transparent 60%);
-    }
-
-    .card:hover { transform: translateY(-2px); }
-    .card:hover::after { opacity: 1; }
-    .card.client:hover { border-color: rgba(34,208,122,0.3); }
-    .card.admin:hover  { border-color: rgba(240,192,64,0.4); }
-
-    .card-icon {
-      width: 40px; height: 40px;
-      border-radius: 8px;
+    .profile-btn:hover { background: rgba(255,255,255,0.03); border-color: var(--muted); }
+    .profile-btn.admin { border-color: rgba(240,192,64,0.2); background: rgba(240,192,64,0.03); }
+    .profile-btn.admin:hover { border-color: rgba(240,192,64,0.45); }
+    .p-icon {
+      width: 30px; height: 30px; border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
+      font-size: 13px; flex-shrink: 0;
     }
-
-    .client .card-icon { background: rgba(34,208,122,0.08); border: 1px solid rgba(34,208,122,0.15); }
-    .admin  .card-icon { background: rgba(240,192,64,0.08);  border: 1px solid rgba(240,192,64,0.2);  }
-
-    .card-info { flex: 1; }
-
-    .card-name {
-      font-weight: 500;
-      font-size: 15px;
-      color: var(--text);
-      margin-bottom: 3px;
-    }
-
-    .admin .card-name { color: var(--accent); font-size: 17px; }
-
-    .card-role {
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--dim);
-      letter-spacing: 0.08em;
-    }
-
-    .card-arrow { color: var(--dim); font-size: 16px; transition: color 0.2s, transform 0.2s; }
-    .card:hover .card-arrow { transform: translateX(4px); }
-    .card.client:hover .card-arrow { color: var(--green); }
-    .card.admin:hover  .card-arrow { color: var(--accent); }
-
+    .client .p-icon { background: rgba(34,208,122,0.08); border: 1px solid rgba(34,208,122,0.15); }
+    .admin  .p-icon { background: rgba(240,192,64,0.08);  border: 1px solid rgba(240,192,64,0.2); }
+    .p-info { flex: 1; text-align: left; }
+    .p-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .admin .p-name { color: var(--accent); }
+    .p-role { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: 0.04em; margin-top: 2px; }
+    .p-arrow { color: var(--dim); font-size: 13px; transition: transform 0.15s; }
+    .profile-btn:hover .p-arrow { transform: translateX(3px); }
+    .divider { margin: 4px 12px; border: none; border-top: 1px solid var(--border); }
     .hint {
-      text-align: center;
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--dim);
-      letter-spacing: 0.08em;
-      margin-top: 24px;
+      padding: 10px 24px; border-top: 1px solid var(--border);
+      font-family: var(--mono); font-size: 10px;
+      color: var(--dim); letter-spacing: 0.05em; text-align: center;
     }
   </style>
 </head>
 <body>
-<div class="wrap">
-
-  <div class="hd">
-    <div class="ticker-row">
-      <div class="ticker-item">HDFCBANK <span>▲ 1645.50</span></div>
-      <div class="ticker-item">RELIANCE <span>▲ 2890.75</span></div>
-      <div class="ticker-item">TCS <span>▲ 3920.00</span></div>
-      <div class="ticker-item">INFY <span>▲ 1478.25</span></div>
-    </div>
-    <h1>APT <em>EXCHANGE</em></h1>
-    <p class="sub">SELECT PROFILE TO ENTER · EACH TAB CAN BE A DIFFERENT USER</p>
+<div class="box">
+  <div class="box-head">
+    <div class="box-title">Select Profile</div>
+    <div class="box-sub">Each browser tab can be a different user</div>
   </div>
-
-  <!-- 5 clients -->
-  <div class="grid">
-    <a class="card client" href="client.html" onclick="go('client_1')">
-      <div class="card-icon">👤</div>
-      <div class="card-info">
-        <div class="card-name">Client 1</div>
-        <div class="card-role">BUY · SELL · CANCEL</div>
-      </div>
-      <span class="card-arrow">→</span>
+  <div class="profiles">
+    <a class="profile-btn client" href="client.html" onclick="go('client_1')">
+      <div class="p-icon">👤</div>
+      <div class="p-info"><div class="p-name">Client 1</div><div class="p-role">Buy · Sell · Cancel orders</div></div>
+      <span class="p-arrow">→</span>
     </a>
-    <a class="card client" href="client.html" onclick="go('client_2')">
-      <div class="card-icon">👤</div>
-      <div class="card-info">
-        <div class="card-name">Client 2</div>
-        <div class="card-role">BUY · SELL · CANCEL</div>
-      </div>
-      <span class="card-arrow">→</span>
+    <a class="profile-btn client" href="client.html" onclick="go('client_2')">
+      <div class="p-icon">👤</div>
+      <div class="p-info"><div class="p-name">Client 2</div><div class="p-role">Buy · Sell · Cancel orders</div></div>
+      <span class="p-arrow">→</span>
     </a>
-    <a class="card client" href="client.html" onclick="go('client_3')">
-      <div class="card-icon">👤</div>
-      <div class="card-info">
-        <div class="card-name">Client 3</div>
-        <div class="card-role">BUY · SELL · CANCEL</div>
-      </div>
-      <span class="card-arrow">→</span>
+    <a class="profile-btn client" href="client.html" onclick="go('client_3')">
+      <div class="p-icon">👤</div>
+      <div class="p-info"><div class="p-name">Client 3</div><div class="p-role">Buy · Sell · Cancel orders</div></div>
+      <span class="p-arrow">→</span>
     </a>
-    <a class="card client" href="client.html" onclick="go('client_4')">
-      <div class="card-icon">👤</div>
-      <div class="card-info">
-        <div class="card-name">Client 4</div>
-        <div class="card-role">BUY · SELL · CANCEL</div>
-      </div>
-      <span class="card-arrow">→</span>
+    <a class="profile-btn client" href="client.html" onclick="go('client_4')">
+      <div class="p-icon">👤</div>
+      <div class="p-info"><div class="p-name">Client 4</div><div class="p-role">Buy · Sell · Cancel orders</div></div>
+      <span class="p-arrow">→</span>
     </a>
-    <a class="card client" href="client.html" onclick="go('client_5')">
-      <div class="card-icon">👤</div>
-      <div class="card-info">
-        <div class="card-name">Client 5</div>
-        <div class="card-role">BUY · SELL · CANCEL</div>
-      </div>
-      <span class="card-arrow">→</span>
+    <a class="profile-btn client" href="client.html" onclick="go('client_5')">
+      <div class="p-icon">👤</div>
+      <div class="p-info"><div class="p-name">Client 5</div><div class="p-role">Buy · Sell · Cancel orders</div></div>
+      <span class="p-arrow">→</span>
+    </a>
+    <hr class="divider"/>
+    <a class="profile-btn admin" href="admin.html" onclick="go('admin')">
+      <div class="p-icon">⚡</div>
+      <div class="p-info"><div class="p-name">Admin</div><div class="p-role">View all orders · Reject trades · Manage market</div></div>
+      <span class="p-arrow">→</span>
     </a>
   </div>
-
-  <!-- Admin -->
-  <div class="admin-row">
-    <a class="card admin" href="admin.html" onclick="go('admin')">
-      <div class="card-icon">⚡</div>
-      <div class="card-info">
-        <div class="card-name">Admin — Exchange Control</div>
-        <div class="card-role">VIEW ALL ORDERS · REJECT TRADES · MANAGE MARKET</div>
-      </div>
-      <span class="card-arrow">→</span>
-    </a>
-  </div>
-
-  <p class="hint">Open multiple tabs and choose a different profile in each to simulate multiple traders</p>
+  <div class="hint">Open multiple tabs · pick a different profile in each</div>
 </div>
-
 <script>
   function go(id) { sessionStorage.setItem('apt_user', id); }
 </script>
