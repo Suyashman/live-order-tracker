@@ -1,0 +1,36 @@
+psql -U postgres
+
+
+psql -U postgres -c "CREATE DATABASE orders_db;"
+psql -U postgres -d orders_db -f database/setup.sql
+
+uvicorn main:app --reload
+
+
+
+INSERT INTO orders (customer_name,product_name,status)
+VALUES ('SUYASH','LT','pending');
+
+INSERT INTO ORDERS (customer_name,product_name,status)
+VALUES ('RAHUL','HDFC','pending');
+
+
+UPDATE orders
+SET status = 'shipped'
+WHERE id = 1;
+
+DELETE FROM orders
+WHERE id = 1;
+
+UPDATE orders
+SET status = 'delivered'
+WHERE id = 2;
+
+
+-----------------------------
+
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/orders
+curl -X POST http://127.0.0.1:8000/orders ^
+  -H "Content-Type: application/json" ^
+  -d "{\"customer_name\":\"Priya\",\"product_name\":\"Reliance Stock\",\"status\":\"pending\"}"

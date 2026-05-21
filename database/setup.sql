@@ -1,4 +1,3 @@
--- Create the orders table
 CREATE TABLE IF NOT EXISTS orders (
     id              SERIAL PRIMARY KEY,
     customer_name   VARCHAR(255) NOT NULL,
@@ -30,7 +29,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Attach trigger to orders table
+
 DROP TRIGGER IF EXISTS orders_change_trigger ON orders;
 CREATE TRIGGER orders_change_trigger
 AFTER INSERT OR UPDATE OR DELETE ON orders

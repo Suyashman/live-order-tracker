@@ -7,13 +7,13 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
-async def get_connection():
+async def get_connection(): # short connections for REST requests 
     """Create and return a single asyncpg connection."""
     conn = await asyncpg.connect(DATABASE_URL)
     return conn
 
 
-async def listen_for_changes(callback):
+async def listen_for_changes(callback): # long lived connections 
     """
     Opens a dedicated connection that LISTENs on 'orders_channel'.
     Whenever PostgreSQL fires pg_notify(), the callback is called with the payload.

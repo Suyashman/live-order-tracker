@@ -15,16 +15,16 @@ class ConnectionManager:
     """Tracks all active WebSocket connections and broadcasts messages to them."""
 
     def __init__(self):
-        self.active_connections: Set[WebSocket] = set()
+        self.active_connections: Set[WebSocket] = set() #this creates empty set for storing  websockets for the n number of clients (c1,wbs1)
 
     async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.add(websocket)
+        await websocket.accept() # accepts a websocket connection
+        self.active_connections.add(websocket) # adds client to the active client list
         print(f"Client connected. Total clients: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.discard(websocket)
-        print(f"Client disconnected. Total clients: {len(self.active_connections)}")
+        print(f"Client disconnected. Total clients: {len(self.active_connections)}") # disconnect
 
     async def broadcast(self, message: str):
         """Send a message to every connected client."""
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     # Startup: open the LISTEN connection
     listen_conn = await listen_for_changes(on_db_change)
     app.state.listen_conn = listen_conn
-    yield
+    yield  # function pauses , everything before this was startup , after this is shutdown , it proceeds from yield when you do ctrl c ...
     # Shutdown: close the connection cleanly
     await listen_conn.close()
     print("Database listener closed.")
@@ -73,7 +73,7 @@ app = FastAPI(title="Real-Time Orders API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["*"],
+    allow_methods=["*"], #allow requests from any domain like methods get post patch delete 
     allow_headers=["*"],
 )
 
@@ -91,7 +91,7 @@ async def get_orders():
     conn = await get_connection()
     try:
         rows = await conn.fetch("SELECT * FROM orders ORDER BY updated_at DESC")
-        return [dict(row) for row in rows]
+        return [dict(row) for row in rows]  # converts the database rows into JSON
     finally:
         await conn.close()
 

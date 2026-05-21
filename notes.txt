@@ -5,6 +5,15 @@ psql -U postgres -d orders_db -f database/setup.sql
 
 
 
+
+
+
+
+
+
+
+
+
 CREATED 2 BRANCHES ONE FOR OPTIONS , ONE FOR TRADING 
 
 
